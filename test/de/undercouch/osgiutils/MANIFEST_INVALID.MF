@@ -1,0 +1,1 @@
+SBundle-SymbolicName: de.undercouch.osgiutils.testbundle
