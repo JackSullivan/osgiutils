@@ -16,6 +16,7 @@ import scala.reflect.BeanProperty
 import scala.util.matching.Regex
 import scala.util.parsing.combinator._
 import scala.util.parsing.input._
+import de.undercouch.scalahelpers.StringAlgorithm._
 
 /**
  * Provides information about an OSGi bundle
@@ -190,10 +191,8 @@ object BundleInfo {
     if (v == null) None else Some(v)
   }
   
-  //TODO split by "," is bad since version ranges also contain commas
-  //TODO a custom split method is needed which pays attention to quotation marks
   private def parseManifestEntry(v: String): Header =
-    v.trim.split(",") map (v => (v.trim.split(";")) map (_.trim))
+    v.splitIf(((_: Char) == ',') withQuotes) map (v => (v.split(";")) map (_.trim))
   
   private def parseManifestVersion(manifest: Manifest): Int = {
     val oh = getSimpleManifestEntry(manifest, ManifestConstants.BundleManifestVersion)
