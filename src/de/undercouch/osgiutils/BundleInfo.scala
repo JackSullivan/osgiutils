@@ -101,13 +101,6 @@ object BundleInfo {
   type HeaderClause = Array[String]
   type Header = Array[HeaderClause]
   
-  private val attrPattern = """\s*=\s*(.+)"""
-  private val ResolutionRegex = ("resolution" + attrPattern)r
-  private val VersionRegex = ("version" + attrPattern)r
-  private val SpecificationVersionRegex = ("specification-version" + attrPattern)r
-  private val BundleSymbolicNameRegex = ("bundle-symbolic-name" + attrPattern)r
-  private val BundleVersionRegex = ("bundle-version" + attrPattern)r
-  
   case class Version(major: Int, minor: Int, micro: Int, qualifier: Option[String])
   
   object Version {
@@ -174,7 +167,12 @@ object BundleInfo {
       VersionRange(v, Version.Infinite, true, false)
   }
   
-  case class ImportDeclaration(name: String, version: VersionRange)
+  case class ImportDeclaration(name: String, optional: Boolean, version: VersionRange, bundleSymbolicName: Option[String], bundleVersion: VersionRange)
+  
+  object ImportDeclaration {
+    def apply(name: String, optional: Boolean, version: VersionRange): ImportDeclaration =
+      ImportDeclaration(name, optional, version, None, VersionRange.Default)
+  }
   
   private def parseManifestEntry(manifest: Manifest, name: String): Header = {
     val v = getSimpleManifestEntry(manifest, name)
@@ -217,45 +215,64 @@ object BundleInfo {
     oh map Version.apply getOrElse Version.Default
   }
   
-  //TODO could be added to the regex or could be handled by a parser
-  private def trimQuotes(s: String): String = {
-    var r = s.trim
-    if (r.startsWith("\"")) r = r.substring(1)
-    if (r.endsWith("\"")) r = r.substring(0, r.length - 1)
-    r
-  }
-  
   private def parseImportedPackages(manifest: Manifest): Array[ImportDeclaration] = {
     var allNames = Set[String]()
     
-    //TODO could be replaced by a parser
+    sealed trait ParsedDecl
+    case class ParsedPackage(name: String) extends ParsedDecl
+    case class ParsedDirective(name: String, value: String) extends ParsedDecl
+    case class ParsedParam(name: String, value: String) extends ParsedDecl
+    
+    object DeclParser extends RegexParsers {
+      lazy val decl = directive | param | pkg
+      lazy val directive = dname ~ ":=" ~ pvalue ^^ { case n ~ ":=" ~ v => ParsedDirective(n, v) }
+      lazy val param = pname ~ "=" ~ pvalue ^^ { case n ~ "=" ~ v => ParsedParam(n, v) }
+      lazy val dname = "resolution" | regex("[^\\:]+"r)
+      lazy val pname = "version" | "specification-version" | "bundle-symbolic-name" | "bundle-version" | regex("[^=]+"r)
+      lazy val pvalue = "\"" ~> regex("[^\"]*"r) <~ "\"" | regex(".*"r)
+      lazy val pkg = regex(".*"r) ^^ { ParsedPackage(_) }
+    }
+    
     def parsePackageDeclaration(decl: HeaderClause): Set[ImportDeclaration] = {
       var names = Set[String]()
       var optional = false
       var version = VersionRange.Default
-      for (param <- decl) param match {
-        case ResolutionRegex(v) =>
-          optional = parseResolution(v)
-          
-        case VersionRegex(v) =>
-          version = VersionRange(trimQuotes(v))
-          
-        case SpecificationVersionRegex(v) => //TODO
-        
-        case BundleSymbolicNameRegex(v) => //TODO
-        
-        case BundleVersionRegex => //TODO
-          
-        case s =>
-          if (allNames contains s) {
-            throw new InvalidBundleException("Duplicate import package: " + s)
-          } else {
-            allNames += s
-            names += s
+      var bundleSymbolicName: Option[String] = None
+      var bundleVersion = VersionRange.Default
+      for (d <- decl) DeclParser.decl(new CharSequenceReader(d)) match {
+        case DeclParser.Success(result, next) if next.atEnd => result match {
+          case ParsedPackage(name) =>
+            if (allNames contains name) {
+              throw new InvalidBundleException("Duplicate import package: " + name)
+            } else {
+              allNames += name
+              names += name
+            }
+            
+          case ParsedDirective(name, value) => name.trim match {
+            case "resolution" => optional = parseResolution(value.trim)
+            case _ => //ignore
           }
+          
+          case ParsedParam(name, value) => name.trim match {
+            case "version" => version = VersionRange(value.trim)
+            case "specification-version" =>
+              val sv = VersionRange(value.trim)
+              if (version == VersionRange.Default)
+                version = sv
+              else if (version != sv)
+                throw new InvalidBundleException("Import package specification version must match version: " + sv + " != " + version)
+            case "bundle-symbolic-name" =>
+              bundleSymbolicName = Some(value.trim)
+            case "bundle-version" =>
+              bundleVersion = VersionRange(value.trim)
+            case _ => //ignore
+          }
+        }
+        case s => throw new InvalidBundleException("Invalid import package declaration: " + d)
       }
-      
-      for (n <- names) yield ImportDeclaration(n, version)
+        
+      for (n <- names) yield ImportDeclaration(n, optional, version, bundleSymbolicName, bundleVersion)
     }
     
     val h = parseManifestEntry(manifest, ManifestConstants.ImportPackage)

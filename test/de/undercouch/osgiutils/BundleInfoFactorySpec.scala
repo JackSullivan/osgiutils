@@ -49,8 +49,9 @@ class BundleInfoFactorySpec extends WordSpec with ShouldMatchers {
     
     "parse imported packages correctly" in {
       val ip = bi.importedPackages
-      ip should contain (ImportDeclaration("junit.runner", VersionRange(Version(3, 8, 2))))
-      ip should contain (ImportDeclaration("javax.mail", VersionRange(Version(1, 4), Version(1, 5), true, false)))
+      ip should contain (ImportDeclaration("junit.runner", false, VersionRange(Version(3, 8, 2))))
+      ip should contain (ImportDeclaration("javax.mail", false, VersionRange(Version(1, 4), Version(1, 5), true, false)))
+      ip should contain (ImportDeclaration("org.apache.commons.logging", true, VersionRange(Version(1, 0, 4)), Some("org.apache.commons"), VersionRange(Version(2, 3, 4))))
     }
   }
   
@@ -85,6 +86,14 @@ class BundleInfoFactorySpec extends WordSpec with ShouldMatchers {
       evaluating {
         BundleInfoFactory.createBundleInfo(getClass.getResource("MANIFEST_INVALIDVERSION.MF"))
       } should produce [InvalidBundleException]
+    }
+    
+    "be able to ignore unknown directive" in {
+      BundleInfoFactory.createBundleInfo(getClass.getResource("MANIFEST_UNKNOWN_DIRECTIVE.MF"))
+    }
+    
+    "be able to ignore unknown parameter" in {
+      BundleInfoFactory.createBundleInfo(getClass.getResource("MANIFEST_UNKNOWN_PARAMETER.MF"))
     }
   }
 }
