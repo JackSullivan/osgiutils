@@ -244,7 +244,7 @@ object BundleInfo {
    * @author Michel Kraemer
    */
   case class ImportDeclaration(name: String, optional: Boolean, version: VersionRange,
-    bundleSymbolicName: Option[String], bundleVersion: VersionRange)
+    bundleSymbolicName: Option[String], bundleVersion: VersionRange, matchingAttributes: Map[String, String])
   
   /**
    * Defines methods to create package import declarations
@@ -253,14 +253,14 @@ object BundleInfo {
   object ImportDeclaration {
     /**
      * Creates a new package import declaration with the given parameters and
-     * no bundle symbolic name and no bundle version
+     * no bundle symbolic name and no bundle version and no other matching attributes
      * @param name the name of the package to import
      * @param optional true if the import is optional
      * @param version the version of the imported package
      * @return the new import declaration
      */
     def apply(name: String, optional: Boolean, version: VersionRange): ImportDeclaration =
-      ImportDeclaration(name, optional, version, None, VersionRange.Default)
+      ImportDeclaration(name, optional, version, None, VersionRange.Default, Map.empty)
   }
   
   /**
@@ -405,6 +405,7 @@ object BundleInfo {
       var version = VersionRange.Default
       var bundleSymbolicName: Option[String] = None
       var bundleVersion = VersionRange.Default
+      var matchingAttributes = Map[String, String]()
       
       //parse each header clause
       for (d <- decl) DeclParser.decl(new CharSequenceReader(d)) match {
@@ -437,7 +438,7 @@ object BundleInfo {
               bundleSymbolicName = Some(value.trim)
             case "bundle-version" =>
               bundleVersion = VersionRange(value.trim)
-            case _ => //ignore
+            case _ => matchingAttributes += (name -> value)
           }
         }
         
@@ -446,7 +447,8 @@ object BundleInfo {
       }
       
       //wrap result variables into import declarations
-      for (n <- names) yield ImportDeclaration(n, optional, version, bundleSymbolicName, bundleVersion)
+      for (n <- names) yield ImportDeclaration(n, optional, version, bundleSymbolicName,
+        bundleVersion, matchingAttributes)
     }
     
     //get import package headers and parse them
