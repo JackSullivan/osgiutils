@@ -60,8 +60,11 @@ case class BundleInfo(
   @BeanProperty
   val version: Version,
   
-  //TODO
-  //val exportedPackages
+  /**
+   * The packages exported by this bundle
+   */
+  @BeanProperty
+  val exportedPackages: Array[ExportDeclaration],
   
   //TODO
   //val fragmentHost
@@ -116,6 +119,7 @@ object BundleInfo {
       BundleInfo.getSimpleManifestEntry(manifest, ManifestConstants.BundleName),
       BundleInfo.getSimpleManifestEntry(manifest, ManifestConstants.BundleDescription),
       BundleInfo.parseVersion(manifest),
+      BundleInfo.parseExportedPackages(manifest),
       BundleInfo.parseImportedPackages(manifest)
   )
   
@@ -205,6 +209,23 @@ object BundleInfo {
     oh map Version.apply getOrElse Version.Default
   }
   
+  //package parser result classes
+  private sealed trait ParsedPackageDecl
+  private case class ParsedPackage(name: String) extends ParsedPackageDecl
+  private case class ParsedDirective(name: String, value: String) extends ParsedPackageDecl
+  private case class ParsedParam(name: String, value: String) extends ParsedPackageDecl
+  
+  //parses import declarations
+  private object PackageDeclParser extends RegexParsers {
+    lazy val decl = directive | param | pkg
+    lazy val directive = dname ~ ":=" ~ pvalue ^^ { case n ~ ":=" ~ v => ParsedDirective(n, v) }
+    lazy val param = pname ~ "=" ~ pvalue ^^ { case n ~ "=" ~ v => ParsedParam(n, v) }
+    lazy val dname = regex("[^\\:]+"r)
+    lazy val pname = regex("[^=]+"r)
+    lazy val pvalue = "\"" ~> regex("[^\"]*"r) <~ "\"" | regex(".*"r)
+    lazy val pkg = regex(".*"r) ^^ { ParsedPackage(_) }
+  }
+  
   /**
    * Parses the imported packages of a bundle
    * @param manifest the bundle manifest
@@ -215,23 +236,6 @@ object BundleInfo {
   private def parseImportedPackages(manifest: Manifest): Array[ImportDeclaration] = {
     //a set of already imported packages
     var allNames = Set[String]()
-    
-    //parser result classes
-    sealed trait ParsedDecl
-    case class ParsedPackage(name: String) extends ParsedDecl
-    case class ParsedDirective(name: String, value: String) extends ParsedDecl
-    case class ParsedParam(name: String, value: String) extends ParsedDecl
-    
-    //parses import declarations
-    object DeclParser extends RegexParsers {
-      lazy val decl = directive | param | pkg
-      lazy val directive = dname ~ ":=" ~ pvalue ^^ { case n ~ ":=" ~ v => ParsedDirective(n, v) }
-      lazy val param = pname ~ "=" ~ pvalue ^^ { case n ~ "=" ~ v => ParsedParam(n, v) }
-      lazy val dname = "resolution" | regex("[^\\:]+"r)
-      lazy val pname = "version" | "specification-version" | "bundle-symbolic-name" | "bundle-version" | regex("[^=]+"r)
-      lazy val pvalue = "\"" ~> regex("[^\"]*"r) <~ "\"" | regex(".*"r)
-      lazy val pkg = regex(".*"r) ^^ { ParsedPackage(_) }
-    }
     
     /**
      * Parses an import package declaration
@@ -249,9 +253,9 @@ object BundleInfo {
       var matchingAttributes = Map[String, String]()
       
       //parse each header clause
-      for (d <- decl) DeclParser.decl(new CharSequenceReader(d)) match {
+      for (d <- decl) PackageDeclParser.decl(new CharSequenceReader(d)) match {
         //parser success
-        case DeclParser.Success(result, next) if next.atEnd => result match {
+        case PackageDeclParser.Success(result, next) if next.atEnd => result match {
           case ParsedPackage(name) =>
             if (allNames contains name) {
               //package has already been imported
@@ -294,6 +298,72 @@ object BundleInfo {
     
     //get import package headers and parse them
     val h = parseManifestEntry(manifest, ManifestConstants.ImportPackage)
+    h flatMap parsePackageDeclaration
+  }
+  
+  /**
+   * Parses the exported packages of a bundle
+   * @param manifest the bundle manifest
+   * @return the parsed package export declarations
+   * @throws InvalidBundleException if any of the export
+   * declarations is invalid
+   */
+  private def parseExportedPackages(manifest: Manifest): Array[ExportDeclaration] = {
+    /**
+     * Parses an export package declaration
+     * @param decl the header to parse
+     * @return the parsed declarations
+     * @throws InvalidBundleException if the export header is invalid
+     */
+    def parsePackageDeclaration(decl: HeaderClause): List[ExportDeclaration] = {
+      //parse result variables
+      var names = List[String]()
+      var version = Version.Default
+      var uses = Set[String]()
+      var mandatory = Set[String]()
+      var includedClasses = Set[String]()
+      var excludedClasses = Set[String]()
+      var matchingAttributes = Map[String, String]()
+      
+      //parse each header clause
+      for (d <- decl) PackageDeclParser.decl(new CharSequenceReader(d)) match {
+        //parser success
+        case PackageDeclParser.Success(result, next) if next.atEnd => result match {
+          case ParsedPackage(name) =>
+            names ::= name
+            
+          case ParsedDirective(name, value) =>
+            val s = (value.split(",") map (_.trim)).toSet
+            name.trim match {
+              case "uses" => uses = s
+              case "mandatory" => mandatory = s
+              case "include" => includedClasses = s
+              case "exclude" => excludedClasses = s
+              case _ => //ignore
+            }
+          
+          case ParsedParam(name, value) => name.trim match {
+            case "version" => version = Version(value.trim)
+            case "specification-version" =>
+              val sv = Version(value.trim)
+              if (version == Version.Default)
+                version = sv
+              else if (version != sv)
+                throw new InvalidBundleException("Export package specification version must match version: " + sv + " != " + version)
+            case _ => matchingAttributes += (name -> value)
+          }
+        }
+        
+        //parser error
+        case _ => throw new InvalidBundleException("Invalid export package declaration: " + d)
+      }
+      
+      //wrap result variables into export declarations
+      for (n <- names) yield ExportDeclaration(n, version, uses, mandatory,
+        includedClasses, excludedClasses, matchingAttributes)
+    }
+    
+    val h = parseManifestEntry(manifest, ManifestConstants.ExportPackage)
     h flatMap parsePackageDeclaration
   }
   
