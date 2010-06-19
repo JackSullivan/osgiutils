@@ -69,7 +69,7 @@ case class BundleInfo(
   /**
    * The packages imported by this bundle
    */
-  val importedPackages: Array[BundleInfo.ImportDeclaration]
+  val importedPackages: Array[ImportDeclaration]
   
   //TODO
   //val requiredBundles
@@ -103,30 +103,6 @@ object BundleInfo {
    */
   type HeaderClause = Array[String]
   type Header = Array[HeaderClause]
-  
-  /**
-   * A package import declaration
-   * @author Michel Kraemer
-   */
-  case class ImportDeclaration(name: String, optional: Boolean, version: VersionRange,
-    bundleSymbolicName: Option[String], bundleVersion: VersionRange, matchingAttributes: Map[String, String])
-  
-  /**
-   * Defines methods to create package import declarations
-   * @author Michel Kraemer
-   */
-  object ImportDeclaration {
-    /**
-     * Creates a new package import declaration with the given parameters and
-     * no bundle symbolic name and no bundle version and no other matching attributes
-     * @param name the name of the package to import
-     * @param optional true if the import is optional
-     * @param version the version of the imported package
-     * @return the new import declaration
-     */
-    def apply(name: String, optional: Boolean, version: VersionRange): ImportDeclaration =
-      ImportDeclaration(name, optional, version, None, VersionRange.Default, Map.empty)
-  }
   
   /**
    * Fills a BundleInfo object with values from the
