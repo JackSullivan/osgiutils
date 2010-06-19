@@ -72,6 +72,7 @@ case class BundleInfo(
   /**
    * The packages imported by this bundle
    */
+  @BeanProperty
   val importedPackages: Array[ImportDeclaration]
   
   //TODO
