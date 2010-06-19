@@ -48,10 +48,10 @@ class BundleInfoFactorySpec extends WordSpec with ShouldMatchers {
     "parse imported packages correctly" in {
       val ip = bi.importedPackages
       ip should contain (ImportDeclaration("junit.runner", false, VersionRange(Version(3, 8, 2)),
-          None, VersionRange.Default, Map("matchingAttribute" -> "somevalue")))
+          matchingAttributes = Map("matchingAttribute" -> "somevalue")))
       ip should contain (ImportDeclaration("javax.mail", false, VersionRange(Version(1, 4), Version(1, 5), true, false)))
       ip should contain (ImportDeclaration("org.apache.commons.logging", true, VersionRange(Version(1, 0, 4)),
-          Some("org.apache.commons"), VersionRange(Version(2, 3, 4)), Map.empty))
+          Some("org.apache.commons"), VersionRange(Version(2, 3, 4))))
     }
   }
   
