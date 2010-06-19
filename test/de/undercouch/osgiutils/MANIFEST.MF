@@ -3,6 +3,7 @@ Bundle-SymbolicName: de.undercouch.osgiutils.testbundle;singleton:=true
 Bundle-Version: 1.2.3.something
 Bundle-Name: Test Bundle
 Bundle-Description: A description
+Fragment-Host: de.undercouch.scalahelpers;bundle-version=1.2.3
 Import-Package: javax.mail;version="[1.4.0,1.5.0)",
  junit.runner;version="3.8.2";matchingAttribute=somevalue,
  org.apache.commons.logging;version="1.0.4";resolution:=optional;bundle-symbolic-name="org.apache.commons";bundle-version="2.3.4"

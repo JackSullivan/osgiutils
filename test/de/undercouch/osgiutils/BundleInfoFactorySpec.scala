@@ -68,6 +68,10 @@ class BundleInfoFactorySpec extends WordSpec with ShouldMatchers {
         Set("com.package.with.all.TestClass", "com.package.with.all.TestClass2"),
         Map("matchingAttribute1" -> "value1", "matchingAttribute2" -> "value2")))
     }
+    
+    "parse fragment host correctly" in {
+      bi.fragmentHost should be (Some(FragmentHost("de.undercouch.scalahelpers", VersionRange(Version(1, 2, 3)))))
+    }
   }
   
   "BundleInfoFactory" should {
@@ -109,6 +113,13 @@ class BundleInfoFactorySpec extends WordSpec with ShouldMatchers {
     
     "be able to ignore unknown parameter" in {
       BundleInfoFactory.createBundleInfo(getClass.getResource("MANIFEST_UNKNOWN_PARAMETER.MF"))
+    }
+    
+    "parse system fragment host correctly" in {
+      val bi1 = BundleInfoFactory.createBundleInfo(getClass.getResource("MANIFEST_BOOTFRAGMENT.MF"))
+      val bi2 = BundleInfoFactory.createBundleInfo(getClass.getResource("MANIFEST_FRAMEWORKFRAGMENT.MF"))
+      bi1.fragmentHost should be (Some(FragmentHost("system.bundle", VersionRange(Version(1, 2, 3)), FragmentHost.Extension.BootClassPath)))
+      bi2.fragmentHost should be (Some(FragmentHost("system.bundle", VersionRange(Version(1, 2, 3)), FragmentHost.Extension.Framework)))
     }
   }
 }

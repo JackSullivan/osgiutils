@@ -61,14 +61,17 @@ case class BundleInfo(
   val version: Version,
   
   /**
+   * The bundle's fragment host
+   */
+  @BeanProperty
+  val fragmentHost: Option[FragmentHost],
+  
+  /**
    * The packages exported by this bundle
    */
   @BeanProperty
   val exportedPackages: Array[ExportDeclaration],
-  
-  //TODO
-  //val fragmentHost
-  
+
   /**
    * The packages imported by this bundle
    */
@@ -108,6 +111,23 @@ object BundleInfo {
   type HeaderClause = Array[String]
   type Header = Array[HeaderClause]
   
+  //header parser result classes
+  private sealed trait ParsedHeaderDecl
+  private case class ParsedHeader(name: String) extends ParsedHeaderDecl
+  private case class ParsedDirective(name: String, value: String) extends ParsedHeaderDecl
+  private case class ParsedParam(name: String, value: String) extends ParsedHeaderDecl
+  
+  //parses header declarations
+  private object HeaderDeclParser extends RegexParsers {
+    lazy val decl = directive | param | header
+    lazy val directive = dname ~ ":=" ~ pvalue ^^ { case n ~ ":=" ~ v => ParsedDirective(n, v) }
+    lazy val param = pname ~ "=" ~ pvalue ^^ { case n ~ "=" ~ v => ParsedParam(n, v) }
+    lazy val dname = regex("[^\\:]+"r)
+    lazy val pname = regex("[^=]+"r)
+    lazy val pvalue = "\"" ~> regex("[^\"]*"r) <~ "\"" | regex(".*"r)
+    lazy val header = regex(".*"r) ^^ { ParsedHeader(_) }
+  }
+  
   /**
    * Fills a BundleInfo object with values from the
    * given Manifest
@@ -120,6 +140,7 @@ object BundleInfo {
       BundleInfo.getSimpleManifestEntry(manifest, ManifestConstants.BundleName),
       BundleInfo.getSimpleManifestEntry(manifest, ManifestConstants.BundleDescription),
       BundleInfo.parseVersion(manifest),
+      BundleInfo.parseFragmentHost(manifest),
       BundleInfo.parseExportedPackages(manifest),
       BundleInfo.parseImportedPackages(manifest)
   )
@@ -210,21 +231,50 @@ object BundleInfo {
     oh map Version.apply getOrElse Version.Default
   }
   
-  //package parser result classes
-  private sealed trait ParsedPackageDecl
-  private case class ParsedPackage(name: String) extends ParsedPackageDecl
-  private case class ParsedDirective(name: String, value: String) extends ParsedPackageDecl
-  private case class ParsedParam(name: String, value: String) extends ParsedPackageDecl
-  
-  //parses import declarations
-  private object PackageDeclParser extends RegexParsers {
-    lazy val decl = directive | param | pkg
-    lazy val directive = dname ~ ":=" ~ pvalue ^^ { case n ~ ":=" ~ v => ParsedDirective(n, v) }
-    lazy val param = pname ~ "=" ~ pvalue ^^ { case n ~ "=" ~ v => ParsedParam(n, v) }
-    lazy val dname = regex("[^\\:]+"r)
-    lazy val pname = regex("[^=]+"r)
-    lazy val pvalue = "\"" ~> regex("[^\"]*"r) <~ "\"" | regex(".*"r)
-    lazy val pkg = regex(".*"r) ^^ { ParsedPackage(_) }
+  /**
+   * Parses the fragment host of a bundle
+   * @param manifest the bundle manifest
+   * @return the fragment host or None if the bundle does not have one
+   */
+  private def parseFragmentHost(manifest: Manifest): Option[FragmentHost] = {
+    val fh = parseManifestEntry(manifest, ManifestConstants.FragmentHost)
+    if (fh.isEmpty) {
+      None
+    } else {
+      //handle one host only
+      val host = fh(0)
+      if (host.isEmpty) {
+        None
+      } else {
+        var name = ""
+        var version = VersionRange.Default
+        var extension = FragmentHost.Extension.None
+        for (d <- host) HeaderDeclParser.decl(new CharSequenceReader(d)) match {
+          //parser success
+          case HeaderDeclParser.Success(result, next) if next.atEnd => result match {
+            case ParsedHeader(n) =>
+              if (name.isEmpty)
+                name = n
+              else
+                throw new InvalidBundleException("More than one fragment host defined: " + name + ", " + n)
+              
+            case ParsedDirective(name, value) => name.trim match {
+              case "extension" => extension = parseExtension(value.trim)
+              case _ => //ignore
+            }
+            
+            case ParsedParam(name, value) => name.trim match {
+              case "bundle-version" => version = VersionRange(value.trim)
+              case _ => //ignore
+            }
+          }
+          
+          //parser error
+          case _ => throw new InvalidBundleException("Invalid fragment host declaration: " + d)
+        }
+        Some(FragmentHost(name, version, extension))
+      }
+    }
   }
   
   /**
@@ -254,10 +304,10 @@ object BundleInfo {
       var matchingAttributes = Map[String, String]()
       
       //parse each header clause
-      for (d <- decl) PackageDeclParser.decl(new CharSequenceReader(d)) match {
+      for (d <- decl) HeaderDeclParser.decl(new CharSequenceReader(d)) match {
         //parser success
-        case PackageDeclParser.Success(result, next) if next.atEnd => result match {
-          case ParsedPackage(name) =>
+        case HeaderDeclParser.Success(result, next) if next.atEnd => result match {
+          case ParsedHeader(name) =>
             if (allNames contains name) {
               //package has already been imported
               throw new InvalidBundleException("Duplicate import package: " + name)
@@ -327,10 +377,10 @@ object BundleInfo {
       var matchingAttributes = Map[String, String]()
       
       //parse each header clause
-      for (d <- decl) PackageDeclParser.decl(new CharSequenceReader(d)) match {
+      for (d <- decl) HeaderDeclParser.decl(new CharSequenceReader(d)) match {
         //parser success
-        case PackageDeclParser.Success(result, next) if next.atEnd => result match {
-          case ParsedPackage(name) =>
+        case HeaderDeclParser.Success(result, next) if next.atEnd => result match {
+          case ParsedHeader(name) =>
             names ::= name
             
           case ParsedDirective(name, value) =>
@@ -378,6 +428,18 @@ object BundleInfo {
   private def parseResolution(v: String) = v match {
     case "optional" => true
     case "mandatory" => false
-    case _ => throw new InvalidBundleException("Invalid value for resolution attribute" + v)
+    case _ => throw new InvalidBundleException("Invalid value for resolution attribute: " + v)
+  }
+  
+  /**
+   * Parse the extension directive of a fragment host declaration
+   * @param v the value of the extension directive
+   * @return the parsed extension value
+   * @throws InvalidBundleException if the given value is unknown
+   */
+  private def parseExtension(v: String) = v match {
+    case "framework" => FragmentHost.Extension.Framework
+    case "bootclasspath" => FragmentHost.Extension.BootClassPath
+    case _ => throw new InvalidBundleException("Invalid value for extension attribute: " + v)
   }
 }
