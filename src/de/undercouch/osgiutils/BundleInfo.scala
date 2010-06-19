@@ -105,58 +105,6 @@ object BundleInfo {
   type Header = Array[HeaderClause]
   
   /**
-   * A version range
-   * @author Michel Kraemer
-   */
-  case class VersionRange(floor: Version, ceiling: Version, floorInclusive: Boolean, ceilingInclusive: Boolean)
-  
-  /**
-   * Defines methods to parse version ranges
-   * @author Michel Kraemer
-   */
-  object VersionRange {
-    /**
-     * A default version range from Version.Default (inclusively) to Version.Infinite
-     */
-    val Default = VersionRange(Version.Default)
-    
-    /**
-     * Defines the new version range which that starts at the
-     * given version number (inclusively) and goes to Version.Infinite
-     * @param v the lower version number
-     * @return the new version range
-     */
-    def apply(v: Version): VersionRange =
-      VersionRange(v, Version.Infinite, true, false)
-      
-    /**
-     * Parses a version range string
-     * @param v the string to parse
-     * @return the parsed version range
-     * @throws InvalidBundleException if the version range string is invalid
-     */
-    def apply(v: String): VersionRange = {
-      object RangeParser extends RegexParsers {
-        lazy val range = interval | atleast
-        lazy val interval = ( floorinc | floorexc ) ~ version ~ "," ~ version ~ ( ceilinc | ceilexc ) ^^ {
-          case left ~ floor ~ "," ~ ceiling ~ right => VersionRange(floor, ceiling, left, right)
-        }
-        lazy val floorinc = "[" ^^^ true
-        lazy val floorexc = "(" ^^^ false
-        lazy val ceilinc = "]" ^^^ true
-        lazy val ceilexc = ")" ^^^ false
-        lazy val atleast = version ^^ { VersionRange(_, Version.Infinite, true, false) }
-        lazy val version = regex("[0-9\\.a-zA-Z_-]+"r) ^^ Version.apply
-      }
-      
-      RangeParser.range(new CharSequenceReader(v)) match {
-        case RangeParser.Success(result, next) if next.atEnd => result
-        case s => throw new InvalidBundleException("Invalid version range: " + v)
-      }
-    }
-  }
-  
-  /**
    * A package import declaration
    * @author Michel Kraemer
    */

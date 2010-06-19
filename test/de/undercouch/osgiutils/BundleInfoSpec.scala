@@ -39,8 +39,6 @@ class BundleInfoSpec extends WordSpec with ShouldMatchers {
   }
   
   "BundleInfo.VersionRange" should {
-    import BundleInfo.VersionRange
-    
     "be able to parse correctly" in {
       VersionRange("1.0") should be (VersionRange(Version(1), Version.Infinite, true, false))
       VersionRange("1.2.3") should be (VersionRange(Version(1, 2, 3), Version.Infinite, true, false))

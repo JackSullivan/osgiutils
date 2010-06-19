@@ -23,7 +23,7 @@ import org.junit.runner.RunWith
 @RunWith(classOf[JUnitRunner])
 class BundleInfoFactorySpec extends WordSpec with ShouldMatchers {
   "BundleInfoFactory" should {
-    import BundleInfo.{ImportDeclaration, VersionRange}
+    import BundleInfo.ImportDeclaration
     
     val bi = BundleInfoFactory.createBundleInfo(getClass.getResource("MANIFEST.MF"))
     
