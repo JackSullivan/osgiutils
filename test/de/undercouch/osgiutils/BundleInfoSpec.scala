@@ -23,8 +23,6 @@ import org.junit.runner.RunWith
 @RunWith(classOf[JUnitRunner])
 class BundleInfoSpec extends WordSpec with ShouldMatchers {
   "BundleInfo.Version" should {
-    import BundleInfo.Version
-    
     "be able to parse correctly" in {
       Version("1") should be (Version(1))
       Version("1.2") should be (Version(1, 2))
@@ -41,7 +39,7 @@ class BundleInfoSpec extends WordSpec with ShouldMatchers {
   }
   
   "BundleInfo.VersionRange" should {
-    import BundleInfo.{Version, VersionRange}
+    import BundleInfo.VersionRange
     
     "be able to parse correctly" in {
       VersionRange("1.0") should be (VersionRange(Version(1), Version.Infinite, true, false))

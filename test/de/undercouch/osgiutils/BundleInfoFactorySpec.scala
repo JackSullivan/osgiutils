@@ -23,7 +23,7 @@ import org.junit.runner.RunWith
 @RunWith(classOf[JUnitRunner])
 class BundleInfoFactorySpec extends WordSpec with ShouldMatchers {
   "BundleInfoFactory" should {
-    import BundleInfo.{ImportDeclaration, Version, VersionRange}
+    import BundleInfo.{ImportDeclaration, VersionRange}
     
     val bi = BundleInfoFactory.createBundleInfo(getClass.getResource("MANIFEST.MF"))
     
@@ -71,7 +71,7 @@ class BundleInfoFactorySpec extends WordSpec with ShouldMatchers {
     
     "return default version number" in {
       val bi = BundleInfoFactory.createBundleInfo(getClass.getResource("MANIFEST_NOVERSION.MF"))
-      bi.version should be (BundleInfo.Version.Default)
+      bi.version should be (Version.Default)
     }
     
     "return no human readable name" in {
