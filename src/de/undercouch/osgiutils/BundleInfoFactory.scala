@@ -57,7 +57,7 @@ object BundleInfoFactory {
    * @return the {@link BundleInfo} object
    */
   def createBundleInfoFromManifest(manifest: Manifest): BundleInfo =
-    new BundleInfo(manifest)
+    BundleInfo(manifest)
   
   /**
    * Creates a {@link BundleInfo} object from a .jar file
