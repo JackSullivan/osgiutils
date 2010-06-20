@@ -56,4 +56,112 @@ class BundleInfoSpec extends WordSpec with ShouldMatchers {
       evaluating {VersionRange("1]")} should produce [InvalidBundleException]
     }
   }
+  
+  "BundleInfo" should {
+    val bi = BundleInfo.fromManifest(getClass.getResource("MANIFEST.MF"))
+    
+    "create a valid bundle info" in {
+      bi.symbolicName should be ("de.undercouch.osgiutils.testbundle")
+    }
+    
+    "parse the bundle's version number correctly" in {
+      bi.version should be (Version(1, 2, 3, "something"))
+    }
+    
+    "parse the bundle manifest version correctly" in {
+      bi.manifestVersion should be (2)
+    }
+    
+    "parse human readable name correctly" in {
+      bi.name should be (Some("Test Bundle"))
+    }
+    
+    "parse description correctly" in {
+      bi.description should be (Some("A description"))
+    }
+    
+    "parse imported packages correctly" in {
+      val ip = bi.importedPackages
+      ip should contain (ImportedPackage("junit.runner", false, VersionRange(Version(3, 8, 2)),
+          matchingAttributes = Map("matchingAttribute" -> "somevalue")))
+      ip should contain (ImportedPackage("javax.mail", false, VersionRange(Version(1, 4), Version(1, 5), true, false)))
+      ip should contain (ImportedPackage("org.apache.commons.logging", true, VersionRange(Version(1, 0, 4)),
+          Some("org.apache.commons"), VersionRange(Version(2, 3, 4))))
+    }
+    
+    "parse exported packages correctly" in {
+      val ep = bi.exportedPackages
+      ep should contain (ExportedPackage("de.undercouch.osgiutils", uses = Set(
+        "scala.collection.immutable", "scala", "org.scalatest.matchers", "org.scalatest")))
+      ep should contain (ExportedPackage("com.package.with.ver", Version(1, 2, 3)))
+      ep should contain (ExportedPackage("com.package.with.included", includedClasses = Set("com.package.with.included.TestClass")))
+      ep should contain (ExportedPackage("com.package.with.excluded", excludedClasses = Set("com.package.with.excluded.TestClass")))
+      ep should contain (ExportedPackage("com.package.with.mand", mandatoryAttributes = Set("first", "second")))
+      ep should contain (ExportedPackage("com.package.with.all", Version(1, 2, 3), Set("scala", "de.undercouch.osgiutils"),
+        Set("first", "second"),
+        Set("com.package.with.all.TestClass", "com.package.with.all.TestClass2"),
+        Set("com.package.with.all.TestClass", "com.package.with.all.TestClass2"),
+        Map("matchingAttribute1" -> "value1", "matchingAttribute2" -> "value2")))
+    }
+    
+    "parse fragment host correctly" in {
+      bi.fragmentHost should be (Some(FragmentHost("de.undercouch.scalahelpers", VersionRange(Version(1, 2, 3)))))
+    }
+    
+    "parse required bundles correctly" in {
+      val rb = bi.requiredBundles
+      rb should contain (RequiredBundle("org.junit", false, VersionRange(Version(3, 8, 2))))
+      rb should contain (RequiredBundle("org.apache.ant", true, VersionRange(Version(1, 7 ,1))))
+      rb should contain (RequiredBundle("org.apache.log4j", reexport = true))
+    }
+  }
+  
+  "BundleInfo" should {
+    "complain about invalid bundle" in {
+      evaluating {
+        BundleInfo.fromManifest(getClass.getResource("MANIFEST_INVALID.MF"))
+      } should produce [InvalidBundleException]
+    }
+    
+    "return default manifest version number" in {
+      val bi = BundleInfo.fromManifest(getClass.getResource("MANIFEST_NOMANIFESTVERSION.MF"))
+      bi.manifestVersion should be (1)
+    }
+    
+    "return default version number" in {
+      val bi = BundleInfo.fromManifest(getClass.getResource("MANIFEST_NOVERSION.MF"))
+      bi.version should be (Version.Default)
+    }
+    
+    "return no human readable name" in {
+      val bi = BundleInfo.fromManifest(getClass.getResource("MANIFEST_NONAME_NODESC.MF"))
+      bi.name should be (None)
+    }
+    
+    "return no description" in {
+      val bi = BundleInfo.fromManifest(getClass.getResource("MANIFEST_NONAME_NODESC.MF"))
+      bi.description should be (None)
+    }
+    
+    "complain about invalid version number" in {
+      evaluating {
+        BundleInfo.fromManifest(getClass.getResource("MANIFEST_INVALIDVERSION.MF"))
+      } should produce [InvalidBundleException]
+    }
+    
+    "be able to ignore unknown directive" in {
+      BundleInfo.fromManifest(getClass.getResource("MANIFEST_UNKNOWN_DIRECTIVE.MF"))
+    }
+    
+    "be able to ignore unknown parameter" in {
+      BundleInfo.fromManifest(getClass.getResource("MANIFEST_UNKNOWN_PARAMETER.MF"))
+    }
+    
+    "parse system fragment host correctly" in {
+      val bi1 = BundleInfo.fromManifest(getClass.getResource("MANIFEST_BOOTFRAGMENT.MF"))
+      val bi2 = BundleInfo.fromManifest(getClass.getResource("MANIFEST_FRAMEWORKFRAGMENT.MF"))
+      bi1.fragmentHost should be (Some(FragmentHost("system.bundle", VersionRange(Version(1, 2, 3)), FragmentHost.Extension.BootClassPath)))
+      bi2.fragmentHost should be (Some(FragmentHost("system.bundle", VersionRange(Version(1, 2, 3)), FragmentHost.Extension.Framework)))
+    }
+  }
 }

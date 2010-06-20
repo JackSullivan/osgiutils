@@ -11,7 +11,9 @@
 
 package de.undercouch.osgiutils
 
-import java.util.jar.{Attributes, Manifest}
+import java.io.{File, FileInputStream, InputStream}
+import java.net.URL
+import java.util.jar.{Attributes, JarFile, JarInputStream, Manifest}
 import scala.reflect.BeanProperty
 import scala.util.matching.Regex
 import scala.util.parsing.combinator._
@@ -132,11 +134,27 @@ object BundleInfo {
   }
   
   /**
-   * Fills a BundleInfo object with values from the
-   * given Manifest
-   * @param manifest the Manifest to parse
+   * Creates a {@link BundleInfo} object from a MANIFEST.MF file.
+   * @param url the URL to the MANIFEST.MF file
+   * @return the {@link BundleInfo} object
    */
-  def apply(manifest: Manifest): BundleInfo = BundleInfo(
+  def fromManifest(url: URL): BundleInfo =
+    fromManifest(url.openConnection().getInputStream())
+  
+  /**
+   * Creates a {@link BundleInfo} object from a MANIFEST.MF file.
+   * @param is the {@link InputStream} used to read the MANIFEST.MF file
+   * @return the {@link BundleInfo} object
+   */
+  def fromManifest(is: InputStream): BundleInfo =
+    fromManifest(new Manifest(is))
+  
+  /**
+   * Creates a {@link BundleInfo} object from a manifest
+   * @param manifest the manifest
+   * @return the {@link BundleInfo} object
+   */
+  def fromManifest(manifest: Manifest): BundleInfo = BundleInfo(
       manifest,
       BundleInfo.parseManifestVersion(manifest),
       BundleInfo.parseSymbolicName(manifest),
@@ -148,6 +166,38 @@ object BundleInfo {
       BundleInfo.parseImportedPackages(manifest),
       BundleInfo.parseRequiredBundles(manifest)
   )
+  
+  /**
+   * Creates a {@link BundleInfo} object from a bundle .jar file
+   * @param url the URL to the .jar file
+   * @return the {@link BundleInfo} object
+   */
+  def fromJar(url: URL): BundleInfo = {
+    val is = url.openConnection().getInputStream()
+    val jis = new JarInputStream(is)
+    fromManifest(jis.getManifest)
+  }
+  
+  /**
+   * Creates a {@link BundleInfo} object from a .jar file
+   * containing a bundle
+   * @param url the URL to the .jar file
+   * @return the {@link BundleInfo} object
+   */
+  def fromJar(jar: JarFile): BundleInfo =
+    fromManifest(jar.getManifest())
+  
+  /**
+   * Creates a {@link BundleInfo} object from a directory
+   * containing a bundle
+   * @param path the path to the bundle directory
+   * @return the {@link BundleInfo} object
+   */
+  def fromDirectory(path: File): BundleInfo = {
+    val manifestFile = new File(path, "META-INF/MANIFEST.MF")
+    val is = new FileInputStream(manifestFile)
+    fromManifest(is)
+  }
   
   /**
    * Parses a manifest entry to an array of strings
