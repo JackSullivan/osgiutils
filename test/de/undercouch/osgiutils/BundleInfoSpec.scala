@@ -22,41 +22,6 @@ import org.junit.runner.RunWith
  */
 @RunWith(classOf[JUnitRunner])
 class BundleInfoSpec extends WordSpec with ShouldMatchers {
-  "BundleInfo.Version" should {
-    "be able to parse correctly" in {
-      Version("1") should be (Version(1))
-      Version("1.2") should be (Version(1, 2))
-      Version("1.2.3") should be (Version(1, 2, 3))
-      Version("1.2.3.something") should be (Version(1, 2, 3, "something"))
-    }
-    
-    "complain about invalid version numbers" in {
-      evaluating {Version("a")} should produce [InvalidBundleException]
-      evaluating {Version("1.a")} should produce [InvalidBundleException]
-      evaluating {Version("1.2.a")} should produce [InvalidBundleException]
-      evaluating {Version("1.2.3a")} should produce [InvalidBundleException]
-    }
-  }
-  
-  "BundleInfo.VersionRange" should {
-    "be able to parse correctly" in {
-      VersionRange("1.0") should be (VersionRange(Version(1), Version.Infinite, true, false))
-      VersionRange("1.2.3") should be (VersionRange(Version(1, 2, 3), Version.Infinite, true, false))
-      VersionRange("(1.0, 2.0)") should be (VersionRange(Version(1), Version(2), false, false))
-      VersionRange("(1.0, 2.0]") should be (VersionRange(Version(1), Version(2), false, true))
-      VersionRange("[1.0, 2.0)") should be (VersionRange(Version(1), Version(2), true, false))
-      VersionRange("[1.0, 2.0]") should be (VersionRange(Version(1), Version(2), true, true))
-      VersionRange("[1.0,2.0]") should be (VersionRange(Version(1), Version(2), true, true))
-    }
-    
-    "complain about bad version range" in {
-      evaluating {VersionRange("1a")} should produce [InvalidBundleException]
-      evaluating {VersionRange("(1")} should produce [InvalidBundleException]
-      evaluating {VersionRange("(1,")} should produce [InvalidBundleException]
-      evaluating {VersionRange("1]")} should produce [InvalidBundleException]
-    }
-  }
-  
   "BundleInfo" should {
     val bi = BundleInfo.fromManifest(getClass.getResource("MANIFEST.MF"))
     
