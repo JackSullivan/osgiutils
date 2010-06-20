@@ -72,6 +72,13 @@ class BundleInfoFactorySpec extends WordSpec with ShouldMatchers {
     "parse fragment host correctly" in {
       bi.fragmentHost should be (Some(FragmentHost("de.undercouch.scalahelpers", VersionRange(Version(1, 2, 3)))))
     }
+    
+    "parse required bundles correctly" in {
+      val rb = bi.requiredBundles
+      rb should contain (RequiredBundle("org.junit", false, VersionRange(Version(3, 8, 2))))
+      rb should contain (RequiredBundle("org.apache.ant", true, VersionRange(Version(1, 7 ,1))))
+      rb should contain (RequiredBundle("org.apache.log4j", reexport = true))
+    }
   }
   
   "BundleInfoFactory" should {

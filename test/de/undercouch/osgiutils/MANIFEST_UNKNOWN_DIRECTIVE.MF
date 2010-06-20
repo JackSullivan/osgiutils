@@ -6,3 +6,4 @@ Bundle-Description: A description
 Import-Package: javax.mail;version="[1.4.0,1.5.0)",
  junit.runner;unknown-directive:=somevalue
 Export-Package: de.undercouch.osgiutils;unknown-directive:=somevalue
+Require-Bundle: org.junit;unknown-directive:=somevalue

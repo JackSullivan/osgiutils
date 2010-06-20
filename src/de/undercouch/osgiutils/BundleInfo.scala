@@ -76,10 +76,13 @@ case class BundleInfo(
    * The packages imported by this bundle
    */
   @BeanProperty
-  val importedPackages: Array[ImportDeclaration]
+  val importedPackages: Array[ImportDeclaration],
   
-  //TODO
-  //val requiredBundles
+  /**
+   * The bundles required by this bundle
+   */
+  @BeanProperty
+  val requiredBundles: Array[RequiredBundle]
 ) {
   /**
    * Retrieves a parsed entry from the bundle's manifest
@@ -142,7 +145,8 @@ object BundleInfo {
       BundleInfo.parseVersion(manifest),
       BundleInfo.parseFragmentHost(manifest),
       BundleInfo.parseExportedPackages(manifest),
-      BundleInfo.parseImportedPackages(manifest)
+      BundleInfo.parseImportedPackages(manifest),
+      BundleInfo.parseRequiredBundles(manifest)
   )
   
   /**
@@ -419,7 +423,60 @@ object BundleInfo {
   }
   
   /**
+   * Parses the required bundles of a bundle
+   * @param manifest the bundle manifest
+   * @return the required bundles
+   */
+  private def parseRequiredBundles(manifest: Manifest): Array[RequiredBundle] = {
+    /**
+     * Parses a require-bundle declaration
+     * @param decl the header to parse
+     * @return the parsed declarations
+     * @throws InvalidBundleException if the require-bundle header is invalid
+     */
+    def parseBundleDeclaration(decl: HeaderClause): RequiredBundle = {
+      var name = ""
+      var optional = false
+      var version = VersionRange.Default
+      var reexport = false
+      
+      //parse each header clause
+      for (d <- decl) HeaderDeclParser.decl(new CharSequenceReader(d)) match {
+        //parser success
+        case HeaderDeclParser.Success(result, next) if next.atEnd => result match {
+          case ParsedHeader(n) =>
+            if (name.isEmpty)
+              name = n
+            else
+              throw new InvalidBundleException("More than one required bundle defined " +
+              		"in one header clause: " + name + ", " + n)
+          
+          case ParsedDirective(name, value) => name.trim match {
+            case "visibility" => reexport = parseVisibility(value.trim)
+            case "resolution" => optional = parseResolution(value.trim)
+            case _ => //ignore
+          }
+          
+          case ParsedParam(name, value) => name.trim match {
+            case "bundle-version" => version = VersionRange(value.trim)
+            case _ => //ignore
+          }
+        }
+        
+        //parser error
+        case _ => throw new InvalidBundleException("Invalid require-bundle declaration: " + d)
+      }
+      
+      RequiredBundle(name, optional, version, reexport)
+    }
+    
+    val h = parseManifestEntry(manifest, ManifestConstants.RequireBundle)
+    h map parseBundleDeclaration
+  }
+  
+  /**
    * Parse the resolution directive of an import package declaration
+   * or require bundle declaration respectively
    * @param v the value of the resolution directive
    * @return true of false depending on if the package import is
    * optional or mandatory respectively
@@ -441,5 +498,18 @@ object BundleInfo {
     case "framework" => FragmentHost.Extension.Framework
     case "bootclasspath" => FragmentHost.Extension.BootClassPath
     case _ => throw new InvalidBundleException("Invalid value for extension attribute: " + v)
+  }
+  
+  /**
+   * Parse the visibility directive of an require bundle declaration
+   * @param v the value of the visibility directive
+   * @return true of false depending on if the packages of
+   * the required bundle should be re-exported or not
+   * @throws InvalidBundleException if the given value is unknown
+   */
+  private def parseVisibility(v: String) = v match {
+    case "reexport" => true
+    case "private" => false
+    case _ => throw new InvalidBundleException("Invalid value for visibility attribute: " + v)
   }
 }
