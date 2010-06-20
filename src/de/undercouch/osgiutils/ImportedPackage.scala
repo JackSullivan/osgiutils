@@ -11,12 +11,15 @@
 
 package de.undercouch.osgiutils
 
+import scala.reflect.{BeanProperty, BooleanBeanProperty}
+
 /**
  * A package import declaration
  * @author Michel Kraemer
  */
-case class ImportedPackage(name: String, optional: Boolean = false,
-  version: VersionRange = VersionRange.Default,
-  bundleSymbolicName: Option[String] = None,
-  bundleVersion: VersionRange = VersionRange.Default,
-  matchingAttributes: Map[String, String] = Map.empty)
+case class ImportedPackage(@BeanProperty name: String,
+  @BooleanBeanProperty optional: Boolean = false,
+  @BeanProperty version: VersionRange = VersionRange.Default,
+  @BeanProperty bundleSymbolicName: Option[String] = None,
+  @BeanProperty bundleVersion: VersionRange = VersionRange.Default,
+  @BeanProperty matchingAttributes: Map[String, String] = Map.empty)

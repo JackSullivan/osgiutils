@@ -11,11 +11,14 @@
 
 package de.undercouch.osgiutils
 
+import scala.reflect.BeanProperty
+
 /**
  * A version declaration (in the format major.minor.micro.qualifier)
  * @author Michel Kraemer
  */
-case class Version(major: Int, minor: Int, micro: Int, qualifier: Option[String])
+case class Version(@BeanProperty major: Int, @BeanProperty minor: Int,
+  @BeanProperty micro: Int, @BeanProperty qualifier: Option[String])
 
 /**
  * Defines methods to parse version declarations

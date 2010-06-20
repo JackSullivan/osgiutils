@@ -11,6 +11,7 @@
 
 package de.undercouch.osgiutils
 
+import scala.reflect.{BeanProperty, BooleanBeanProperty}
 import scala.util.matching.Regex
 import scala.util.parsing.combinator._
 import scala.util.parsing.input._
@@ -19,7 +20,9 @@ import scala.util.parsing.input._
  * A version range
  * @author Michel Kraemer
  */
-case class VersionRange(floor: Version, ceiling: Version, floorInclusive: Boolean, ceilingInclusive: Boolean)
+case class VersionRange(@BeanProperty floor: Version, @BeanProperty ceiling: Version,
+  @BooleanBeanProperty floorInclusive: Boolean,
+  @BooleanBeanProperty ceilingInclusive: Boolean)
 
 /**
  * Defines methods to parse version ranges

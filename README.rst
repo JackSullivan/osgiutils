@@ -43,7 +43,7 @@ The library can also be used from Java::
   System.out.println(bi.getSymbolicName());
   System.out.println(bi.getVersion());
   for (ExportedPackage ep : bi.getExportedPackages()) {
-      System.out.println(ep.name());
+      System.out.println(ep.getName());
   }
   if (bi.getName().isDefined()) {
       System.out.println(bi.getName().get());

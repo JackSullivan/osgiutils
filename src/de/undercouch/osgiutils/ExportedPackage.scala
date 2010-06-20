@@ -11,11 +11,16 @@
 
 package de.undercouch.osgiutils
 
+import scala.reflect.BeanProperty
+
 /**
  * A package export declaration
  * @author Michel Kraemer
  */
-case class ExportedPackage(name: String, version: Version = Version.Default,
-  uses: Set[String] = Set.empty, mandatoryAttributes: Set[String] = Set.empty,
-  includedClasses: Set[String] = Set.empty, excludedClasses: Set[String] = Set.empty,
-  matchingAttributes: Map[String, String] = Map.empty)
+case class ExportedPackage(@BeanProperty name: String,
+  @BeanProperty version: Version = Version.Default,
+  @BeanProperty uses: Set[String] = Set.empty,
+  @BeanProperty mandatoryAttributes: Set[String] = Set.empty,
+  @BeanProperty includedClasses: Set[String] = Set.empty,
+  @BeanProperty excludedClasses: Set[String] = Set.empty,
+  @BeanProperty matchingAttributes: Map[String, String] = Map.empty)

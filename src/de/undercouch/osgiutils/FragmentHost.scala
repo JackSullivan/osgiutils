@@ -11,12 +11,15 @@
 
 package de.undercouch.osgiutils
 
+import scala.reflect.BeanProperty
+
 /**
  * Information about a fragment's host
  * @author Michel Kraemer
  */
-case class FragmentHost(symbolicName: String, version: VersionRange = VersionRange.Default,
-  extension: FragmentHost.Extension.Extension = FragmentHost.Extension.None)
+case class FragmentHost(@BeanProperty symbolicName: String,
+  @BeanProperty version: VersionRange = VersionRange.Default,
+  @BeanProperty extension: FragmentHost.Extension.Extension = FragmentHost.Extension.None)
 
 /**
  * Static definitions for the information about fragment hosts

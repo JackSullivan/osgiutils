@@ -11,9 +11,13 @@
 
 package de.undercouch.osgiutils
 
+import scala.reflect.{BeanProperty, BooleanBeanProperty}
+
 /**
  * Represents a bundle required by another bundle
  * @author Michel Kraemer
  */
-case class RequiredBundle(symbolicName: String, optional: Boolean = false,
-  version: VersionRange = VersionRange.Default, reexport: Boolean = false)
+case class RequiredBundle(@BeanProperty symbolicName: String,
+  @BooleanBeanProperty optional: Boolean = false,
+  @BeanProperty version: VersionRange = VersionRange.Default,
+  @BooleanBeanProperty reexport: Boolean = false)
