@@ -56,13 +56,13 @@ class BundleInfoFactorySpec extends WordSpec with ShouldMatchers {
     
     "parse exported packages correctly" in {
       val ep = bi.exportedPackages
-      ep should contain (ExportDeclaration("de.undercouch.osgiutils", uses = Set(
+      ep should contain (ExportedPackage("de.undercouch.osgiutils", uses = Set(
         "scala.collection.immutable", "scala", "org.scalatest.matchers", "org.scalatest")))
-      ep should contain (ExportDeclaration("com.package.with.ver", Version(1, 2, 3)))
-      ep should contain (ExportDeclaration("com.package.with.included", includedClasses = Set("com.package.with.included.TestClass")))
-      ep should contain (ExportDeclaration("com.package.with.excluded", excludedClasses = Set("com.package.with.excluded.TestClass")))
-      ep should contain (ExportDeclaration("com.package.with.mand", mandatoryAttributes = Set("first", "second")))
-      ep should contain (ExportDeclaration("com.package.with.all", Version(1, 2, 3), Set("scala", "de.undercouch.osgiutils"),
+      ep should contain (ExportedPackage("com.package.with.ver", Version(1, 2, 3)))
+      ep should contain (ExportedPackage("com.package.with.included", includedClasses = Set("com.package.with.included.TestClass")))
+      ep should contain (ExportedPackage("com.package.with.excluded", excludedClasses = Set("com.package.with.excluded.TestClass")))
+      ep should contain (ExportedPackage("com.package.with.mand", mandatoryAttributes = Set("first", "second")))
+      ep should contain (ExportedPackage("com.package.with.all", Version(1, 2, 3), Set("scala", "de.undercouch.osgiutils"),
         Set("first", "second"),
         Set("com.package.with.all.TestClass", "com.package.with.all.TestClass2"),
         Set("com.package.with.all.TestClass", "com.package.with.all.TestClass2"),

@@ -15,7 +15,7 @@ package de.undercouch.osgiutils
  * A package export declaration
  * @author Michel Kraemer
  */
-case class ExportDeclaration(name: String, version: Version = Version.Default,
+case class ExportedPackage(name: String, version: Version = Version.Default,
   uses: Set[String] = Set.empty, mandatoryAttributes: Set[String] = Set.empty,
   includedClasses: Set[String] = Set.empty, excludedClasses: Set[String] = Set.empty,
   matchingAttributes: Map[String, String] = Map.empty)

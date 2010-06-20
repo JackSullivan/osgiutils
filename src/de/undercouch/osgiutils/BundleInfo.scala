@@ -70,7 +70,7 @@ case class BundleInfo(
    * The packages exported by this bundle
    */
   @BeanProperty
-  val exportedPackages: Array[ExportDeclaration],
+  val exportedPackages: Array[ExportedPackage],
 
   /**
    * The packages imported by this bundle
@@ -363,14 +363,14 @@ object BundleInfo {
    * @throws InvalidBundleException if any of the export
    * declarations is invalid
    */
-  private def parseExportedPackages(manifest: Manifest): Array[ExportDeclaration] = {
+  private def parseExportedPackages(manifest: Manifest): Array[ExportedPackage] = {
     /**
      * Parses an export package declaration
      * @param decl the header to parse
      * @return the parsed declarations
      * @throws InvalidBundleException if the export header is invalid
      */
-    def parsePackageDeclaration(decl: HeaderClause): List[ExportDeclaration] = {
+    def parsePackageDeclaration(decl: HeaderClause): List[ExportedPackage] = {
       //parse result variables
       var names = List[String]()
       var version = Version.Default
@@ -414,7 +414,7 @@ object BundleInfo {
       }
       
       //wrap result variables into export declarations
-      for (n <- names) yield ExportDeclaration(n, version, uses, mandatory,
+      for (n <- names) yield ExportedPackage(n, version, uses, mandatory,
         includedClasses, excludedClasses, matchingAttributes)
     }
     
