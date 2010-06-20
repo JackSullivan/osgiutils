@@ -23,19 +23,24 @@ case class Version(@BeanProperty major: Int = 0, @BeanProperty minor: Int = 0,
   require(qualifier != null, "Version qualifier must not be null")
   
   override def compare(that: Version): Int = {
-    val mj = major - that.major
-    if (mj != 0) {
-      mj
+    if (that eq Version.Infinite) {
+      //every version number is lower than the infinite one
+      -1
     } else {
-      val mi = minor - that.minor
-      if (mi != 0) {
-        mi
+      val mj = major - that.major
+      if (mj != 0) {
+        mj
       } else {
-        val mc = micro - that.micro
-        if (mc != 0) {
-          mc
+        val mi = minor - that.minor
+        if (mi != 0) {
+          mi
         } else {
-          qualifier.compareTo(that.qualifier)
+          val mc = micro - that.micro
+          if (mc != 0) {
+            mc
+          } else {
+            qualifier.compareTo(that.qualifier)
+          }
         }
       }
     }

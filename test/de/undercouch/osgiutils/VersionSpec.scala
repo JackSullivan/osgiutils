@@ -103,6 +103,8 @@ class VersionSpec extends WordSpec with ShouldMatchers {
       Version.Infinite > Version(1) should be (true)
       Version.Infinite > Version.Default should be (true)
       Version.Infinite > Version.Infinite should be (true)
+      
+      Version(1) < Version.Infinite should be (true)
     }
   }
 }
