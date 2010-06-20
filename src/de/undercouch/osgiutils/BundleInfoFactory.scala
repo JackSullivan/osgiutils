@@ -11,7 +11,7 @@
 
 package de.undercouch.osgiutils
 
-import java.io.{File, InputStream}
+import java.io.{File, FileInputStream, InputStream}
 import java.net.{JarURLConnection, URL}
 import java.util.jar.{JarFile, Manifest}
 
@@ -75,8 +75,8 @@ object BundleInfoFactory {
    * @return the {@link BundleInfo} object
    */
   def createBundleInfoFromDirectory(path: File): BundleInfo = {
-    //new BundleInfo("")
-    //TODO
-    null
+    val manifestFile = new File(path, "META-INF/MANIFEST.MF")
+    val is = new FileInputStream(manifestFile)
+    createBundleInfoFromManifest(is)
   }
 }
