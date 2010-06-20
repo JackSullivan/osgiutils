@@ -11,14 +11,36 @@
 
 package de.undercouch.osgiutils
 
+import scala.math.Ordered
 import scala.reflect.BeanProperty
 
 /**
  * A version declaration (in the format major.minor.micro.qualifier)
  * @author Michel Kraemer
  */
-case class Version(@BeanProperty major: Int, @BeanProperty minor: Int,
-  @BeanProperty micro: Int, @BeanProperty qualifier: Option[String])
+case class Version(@BeanProperty major: Int = 0, @BeanProperty minor: Int = 0,
+  @BeanProperty micro: Int = 0, @BeanProperty qualifier: String = "") extends Ordered[Version] {
+  require(qualifier != null, "Version qualifier must not be null")
+  
+  override def compare(that: Version): Int = {
+    val mj = major - that.major
+    if (mj != 0) {
+      mj
+    } else {
+      val mi = minor - that.minor
+      if (mi != 0) {
+        mi
+      } else {
+        val mc = micro - that.micro
+        if (mc != 0) {
+          mc
+        } else {
+          qualifier.compareTo(that.qualifier)
+        }
+      }
+    }
+  }
+}
 
 /**
  * Defines methods to parse version declarations
@@ -28,52 +50,15 @@ object Version {
   /**
    * The default version (0.0.0)
    */
-  val Default = Version(0, 0, 0, None)
+  val Default = Version()
   
   /**
    * A version number that is infinitely large
    */
-  val Infinite = new Version(0, 0, 0, None) {
-    //TODO overwrite comparison operators
+  val Infinite = new Version() {
+    //the infinite version is always larger than anything else
+    override def compare(that: Version): Int = 1
   }
-  
-  /**
-   * Creates a new version number
-   * @param major the major version number
-   * @return the version number
-   */
-  def apply(major: Int): Version =
-    Version(major, 0, 0, None)
-  
-  /**
-   * Creates a new version number
-   * @param major the major version number
-   * @param minor the minor version number
-   * @return the version number
-   */
-  def apply(major: Int, minor: Int): Version =
-    Version(major, minor, 0, None)
-    
-  /**
-   * Creates a new version number
-   * @param major the major version number
-   * @param minor the minor version number
-   * @param micro the micro version number
-   * @return the version number
-   */
-  def apply(major: Int, minor: Int, micro: Int): Version =
-    Version(major, minor, micro, None)
-  
-  /**
-   * Creates a new version number
-   * @param major the major version number
-   * @param minor the minor version number
-   * @param micro the micro version number
-   * @param qualifier the version qualifier
-   * @return the version number
-   */
-  def apply(major: Int, minor: Int, micro: Int, qualifier: String): Version =
-    Version(major, minor, micro, if (qualifier != null) Some(qualifier) else None)
     
   /**
    * Parses a version number string
@@ -88,7 +73,7 @@ object Version {
           if (n.length > 0) n(0).toInt else 0,
           if (n.length > 1) n(1).toInt else 0,
           if (n.length > 2) n(2).toInt else 0,
-          if (n.length > 3) Some(n(3)) else None
+          if (n.length > 3) n(3) else ""
       )
     } catch {
       case _: NumberFormatException =>

@@ -36,5 +36,73 @@ class VersionSpec extends WordSpec with ShouldMatchers {
       evaluating {Version("1.2.a")} should produce [InvalidBundleException]
       evaluating {Version("1.2.3a")} should produce [InvalidBundleException]
     }
+    
+    "be comparable" in {
+      Version(2) > Version(1) should be (true)
+      Version(1) < Version(2) should be (true)
+      Version(1) <= Version(2) should be (true)
+      Version(2) >= Version(1) should be (true)
+      Version(2) <= Version(2) should be (true)
+      Version(2) >= Version(2) should be (true)
+      
+      Version(2) < Version(1) should be (false)
+      Version(1) > Version(2) should be (false)
+      Version(1) >= Version(2) should be (false)
+      Version(2) <= Version(1) should be (false)
+      
+      Version(1, 2) > Version(1, 1) should be (true)
+      Version(1, 1) < Version(1, 2) should be (true)
+      Version(1, 1) <= Version(1, 2) should be (true)
+      Version(1, 2) >= Version(1, 1) should be (true)
+      Version(1, 2) <= Version(1, 2) should be (true)
+      Version(1, 2) >= Version(1, 2) should be (true)
+      
+      Version(1, 2) < Version(1, 1) should be (false)
+      Version(1, 1) > Version(1, 2) should be (false)
+      Version(1, 1) >= Version(1, 2) should be (false)
+      Version(1, 2) <= Version(1, 1) should be (false)
+      
+      Version(1, 1, 2) > Version(1, 1, 1) should be (true)
+      Version(1, 1, 1) < Version(1, 1, 2) should be (true)
+      Version(1, 1, 1) <= Version(1, 1, 2) should be (true)
+      Version(1, 1, 2) >= Version(1, 1, 1) should be (true)
+      Version(1, 1, 2) <= Version(1, 1, 2) should be (true)
+      Version(1, 1, 2) >= Version(1, 1, 2) should be (true)
+      
+      Version(1, 1, 2) < Version(1, 1, 1) should be (false)
+      Version(1, 1, 1) > Version(1, 1, 2) should be (false)
+      Version(1, 1, 1) >= Version(1, 1, 2) should be (false)
+      Version(1, 1, 2) <= Version(1, 1, 1) should be (false)
+      
+      Version(1, 1, 1, "b") > Version(1, 1, 1, "a") should be (true)
+      Version(1, 1, 1, "a") < Version(1, 1, 1, "b") should be (true)
+      Version(1, 1, 1, "a") <= Version(1, 1, 1, "b") should be (true)
+      Version(1, 1, 1, "b") >= Version(1, 1, 1, "a") should be (true)
+      Version(1, 1, 1, "b") <= Version(1, 1, 1, "b") should be (true)
+      Version(1, 1, 1, "b") >= Version(1, 1, 1, "b") should be (true)
+      
+      Version(1, 1, 1, "b") < Version(1, 1, 1, "a") should be (false)
+      Version(1, 1, 1, "a") > Version(1, 1, 1, "b") should be (false)
+      Version(1, 1, 1, "a") >= Version(1, 1, 1, "b") should be (false)
+      Version(1, 1, 1, "b") <= Version(1, 1, 1, "a") should be (false)
+      
+      Version(2) > Version(1, 1, 1) should be (true)
+      Version(1, 1, 2) < Version(2) should be (true)
+      Version(1, 1, 2) <= Version(2) should be (true)
+      Version(2) >= Version(1, 1, 2) should be (true)
+      Version(1, 1, 2) <= Version(2) should be (true)
+      Version(2) >= Version(1, 1, 2) should be (true)
+      
+      Version(1, 1, 1, "b") > Version(1, 1, 1) should be (true)
+      Version(1, 1, 1) < Version(1, 1, 1, "b") should be (true)
+      Version(1, 1, 1) <= Version(1, 1, 1, "b") should be (true)
+      Version(1, 1, 1, "b") >= Version(1, 1, 1) should be (true)
+      Version(1, 1, 1) <= Version(1, 1, 1, "b") should be (true)
+      Version(1, 1, 1, "b") >= Version(1, 1, 1) should be (true)
+      
+      Version.Infinite > Version(1) should be (true)
+      Version.Infinite > Version.Default should be (true)
+      Version.Infinite > Version.Infinite should be (true)
+    }
   }
 }
