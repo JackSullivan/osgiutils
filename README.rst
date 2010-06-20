@@ -4,6 +4,51 @@ OSGi Utilities
 
 These are some OSGi helper classes written in Scala.
 
+Compiling
+---------
+
+You need `sbt <http://code.google.com/p/simple-build-tool/>`_ in order to compile the OSGi Utilities. Please follow the `instructions on the sbt wiki <http://code.google.com/p/simple-build-tool/wiki/Setup>`_.
+
+Execute the following command to compile the OSGi Utilities and to run the unit tests::
+
+  sbt update compile test
+
+If everything runs successfully, you may create a .jar library::
+
+  sbt clean package
+
+The library will be located under the ``target`` directory. It can also be used as an OSGi bundle.
+
+Usage
+-----
+
+The following example shows how to use the OSGi Utilities in Scala::
+
+  import de.undercouch.osgiutils.BundleInfo
+
+  val u: java.net.URL = .....; // URL to bundle jar
+  val bi = BundleInfo.fromJar(u)
+  println("Bundle-Symbolic-Name: " + bi.symbolicName)
+  println("Bundle-Version: " + bi.version)
+  bi.exportedPackages foreach { ep => println(ep.name) }
+  for (name <- bi.name) println(name)
+
+The library can also be used from Java::
+
+  import de.undercouch.osgiutils.BundleInfo;
+  import de.undercouch.osgiutils.ExportedPackage;
+
+  java.net.URL u = .....; // URL to bundle jar
+  BundleInfo bi = BundleInfo.fromJar(u);
+  System.out.println(bi.getSymbolicName());
+  System.out.println(bi.getVersion());
+  for (ExportedPackage ep : bi.getExportedPackages()) {
+      System.out.println(ep.name());
+  }
+  if (bi.getName().isDefined()) {
+      System.out.println(bi.getName().get());
+  }
+
 License
 -------
 
