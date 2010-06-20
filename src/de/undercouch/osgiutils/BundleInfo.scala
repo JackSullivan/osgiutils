@@ -76,7 +76,7 @@ case class BundleInfo(
    * The packages imported by this bundle
    */
   @BeanProperty
-  val importedPackages: Array[ImportDeclaration],
+  val importedPackages: Array[ImportedPackage],
   
   /**
    * The bundles required by this bundle
@@ -288,7 +288,7 @@ object BundleInfo {
    * @throws InvalidBundleException if any of the import
    * declarations is invalid
    */
-  private def parseImportedPackages(manifest: Manifest): Array[ImportDeclaration] = {
+  private def parseImportedPackages(manifest: Manifest): Array[ImportedPackage] = {
     //a set of already imported packages
     var allNames = Set[String]()
     
@@ -298,7 +298,7 @@ object BundleInfo {
      * @return the parsed declarations
      * @throws InvalidBundleException if the import header is invalid
      */
-    def parsePackageDeclaration(decl: HeaderClause): Set[ImportDeclaration] = {
+    def parsePackageDeclaration(decl: HeaderClause): Set[ImportedPackage] = {
       //parse result variables
       var names = Set[String]()
       var optional = false
@@ -347,7 +347,7 @@ object BundleInfo {
       }
       
       //wrap result variables into import declarations
-      for (n <- names) yield ImportDeclaration(n, optional, version, bundleSymbolicName,
+      for (n <- names) yield ImportedPackage(n, optional, version, bundleSymbolicName,
         bundleVersion, matchingAttributes)
     }
     

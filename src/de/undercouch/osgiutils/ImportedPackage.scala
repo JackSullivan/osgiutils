@@ -15,7 +15,7 @@ package de.undercouch.osgiutils
  * A package import declaration
  * @author Michel Kraemer
  */
-case class ImportDeclaration(name: String, optional: Boolean = false,
+case class ImportedPackage(name: String, optional: Boolean = false,
   version: VersionRange = VersionRange.Default,
   bundleSymbolicName: Option[String] = None,
   bundleVersion: VersionRange = VersionRange.Default,
