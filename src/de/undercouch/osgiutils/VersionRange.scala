@@ -22,7 +22,25 @@ import scala.util.parsing.input._
  */
 case class VersionRange(@BeanProperty floor: Version, @BeanProperty ceiling: Version,
   @BooleanBeanProperty floorInclusive: Boolean,
-  @BooleanBeanProperty ceilingInclusive: Boolean)
+  @BooleanBeanProperty ceilingInclusive: Boolean) {
+  require(floor <= ceiling, "The higher version number must be greater or equal than the lower one")
+  
+  /**
+   * Checks if this version range contains a given version
+   * @param v the version
+   * @return true if this version range contains v, false otherwise
+   */
+  def contains(v: Version): Boolean = {
+    if (floorInclusive && ceilingInclusive)
+      v >= floor && v <= ceiling
+    else if (floorInclusive && !ceilingInclusive)
+      v >= floor && v < ceiling
+    else if (!floorInclusive && ceilingInclusive)
+      v > floor && v <= ceiling
+    else
+      v > floor && v < ceiling
+  }
+}
 
 /**
  * Defines methods to parse version ranges

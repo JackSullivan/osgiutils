@@ -39,5 +39,49 @@ class VersionRangeSpec extends WordSpec with ShouldMatchers {
       evaluating {VersionRange("(1,")} should produce [InvalidBundleException]
       evaluating {VersionRange("1]")} should produce [InvalidBundleException]
     }
+    
+    "contain versions" in {
+      var vr_def = VersionRange.Default
+      vr_def contains Version.Default should be (true)
+      vr_def contains Version(1) should be (true)
+      
+      val vr1 = VersionRange("[1.0, 2.0]")
+      vr1 contains Version(1) should be (true)
+      vr1 contains Version(1, 5) should be (true)
+      vr1 contains Version(2) should be (true)
+      
+      val vr2 = VersionRange("(1.0, 2.0]")
+      vr2 contains Version(1, 5) should be (true)
+      vr2 contains Version(2) should be (true)
+      
+      val vr3 = VersionRange("[1.0, 2.0)")
+      vr3 contains Version(1) should be (true)
+      vr3 contains Version(1, 5) should be (true)
+      
+      val vr4 = VersionRange("(1.0, 2.0)")
+      vr4 contains Version(1, 5) should be (true)
+    }
+    
+    "not contain versions" in {
+      val vr1 = VersionRange("[1.0, 2.0]")
+      vr1 contains Version(0, 5) should be (false)
+      vr1 contains Version(2, 5) should be (false)
+      
+      val vr2 = VersionRange("(1.0, 2.0]")
+      vr2 contains Version(1) should be (false)
+      vr2 contains Version(0, 5) should be (false)
+      vr2 contains Version(2, 5) should be (false)
+      
+      val vr3 = VersionRange("[1.0, 2.0)")
+      vr3 contains Version(0, 5) should be (false)
+      vr3 contains Version(2, 5) should be (false)
+      vr3 contains Version(2) should be (false)
+      
+      val vr4 = VersionRange("(1.0, 2.0)")
+      vr4 contains Version(1) should be (false)
+      vr4 contains Version(0, 5) should be (false)
+      vr4 contains Version(2, 5) should be (false)
+      vr4 contains Version(2) should be (false)
+    }
   }
 }
