@@ -24,9 +24,12 @@ import de.undercouch.osgiutils._
 @RunWith(classOf[JUnitRunner])
 class BundleRegistrySpec extends WordSpec with ShouldMatchers {
   private def makeBundle(symbolicName: String, version: Version = Version.Default,
-    fragmentHost: Option[FragmentHost] = None) =
+    fragmentHost: Option[FragmentHost] = None,
+    exportedPackages: Array[ExportedPackage] = Array.empty,
+    importedPackages: Array[ImportedPackage] = Array.empty,
+    requiredBundles: Array[RequiredBundle] = Array.empty) =
     BundleInfo(null, 2, symbolicName, None, None, version, fragmentHost,
-      Array.empty, Array.empty, Array.empty)
+      exportedPackages, importedPackages, requiredBundles)
   
   "BundleRegistry" should {
     "not accept a bundle twice" in {
@@ -90,6 +93,60 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
       val bf2 = reg.findFragments(b2)
       bf2 should have size(1)
       bf2 should contain (f2)
+    }
+    
+    "not find bundles by exported package" in {
+      val b3 = makeBundle("C", version = Version(1), exportedPackages = Array(
+          ExportedPackage("p"), ExportedPackage("q", Version(1)),
+          ExportedPackage("r", mandatoryAttributes = Set("attr1"), matchingAttributes = Map("attr1" -> "value1")),
+          ExportedPackage("s", matchingAttributes = Map("attr1" -> "value1", "attr2" -> "value2"))))
+      
+      val reg = new BundleRegistry()
+      reg.add(b3)
+      
+      reg.findBundle(ImportedPackage("t")) should be (None)
+      reg.findBundle(ImportedPackage("q", version = VersionRange(Version(2)))) should be (None)
+      reg.findBundle(ImportedPackage("q", bundleSymbolicName = Some("A"))) should be (None)
+      reg.findBundle(ImportedPackage("q", bundleSymbolicName = Some("C"),
+          bundleVersion = VersionRange(Version(2)))) should be (None)
+      reg.findBundle(ImportedPackage("r")) should be (None)
+      reg.findBundle(ImportedPackage("s", matchingAttributes = Map("attr1" -> "value3"))) should be (None)
+      reg.findBundle(ImportedPackage("s", matchingAttributes = Map("attr2" -> "value3"))) should be (None)
+      reg.findBundle(ImportedPackage("s", matchingAttributes = Map("attr3" -> "value3"))) should be (None)
+      reg.findBundle(ImportedPackage("s", matchingAttributes = Map("attr1" -> "value1", "attr2" -> "value3"))) should be (None)
+      reg.findBundle(ImportedPackage("s", matchingAttributes = Map("attr1" -> "value2", "attr2" -> "value2"))) should be (None)
+    }
+    
+    "find bundles by exported package" in {
+      val b3 = makeBundle("C", version = Version(3), exportedPackages = Array(
+          ExportedPackage("p"), ExportedPackage("q", Version(1)), ExportedPackage("r"),
+          ExportedPackage("s", mandatoryAttributes = Set("attr1"), matchingAttributes = Map("attr1" -> "value1")),
+          ExportedPackage("t", matchingAttributes = Map("attr1" -> "value1", "attr2" -> "value2"))))
+      val b4 = makeBundle("D", version = Version(4), exportedPackages = Array(
+          ExportedPackage("q", Version(2)), ExportedPackage("r"),
+          ExportedPackage("s"),
+          ExportedPackage("t", matchingAttributes = Map("attr3" -> "value3", "attr4" -> "value4"))))
+      
+      val reg = new BundleRegistry()
+      reg.add(b3)
+      reg.add(b4)
+      
+      reg.findBundle(ImportedPackage("p")) should be (Some(b3))
+      reg.findBundle(ImportedPackage("q")) should be (Some(b3))
+      reg.findBundle(ImportedPackage("q", version = VersionRange(Version(1)))) should be (Some(b3))
+      reg.findBundle(ImportedPackage("q", version = VersionRange(Version(2)))) should be (Some(b4))
+      reg.findBundle(ImportedPackage("q", bundleSymbolicName = Some("C"))) should be (Some(b3))
+      reg.findBundle(ImportedPackage("q", bundleSymbolicName = Some("D"))) should be (Some(b4))
+      reg.findBundle(ImportedPackage("q", bundleVersion = VersionRange(Version(3)))) should be (Some(b3))
+      reg.findBundle(ImportedPackage("q", bundleVersion = VersionRange(Version(4)))) should be (Some(b4))
+      reg.findBundle(ImportedPackage("s")) should be (Some(b4))
+      reg.findBundle(ImportedPackage("s", matchingAttributes = Map("attr1" -> "value1"))) should be (Some(b3))
+      reg.findBundle(ImportedPackage("t", matchingAttributes = Map("attr1" -> "value1"))) should be (Some(b3))
+      reg.findBundle(ImportedPackage("t", matchingAttributes = Map("attr2" -> "value2"))) should be (Some(b3))
+      reg.findBundle(ImportedPackage("t", matchingAttributes = Map("attr1" -> "value1", "attr2" -> "value2"))) should be (Some(b3))
+      reg.findBundle(ImportedPackage("t", matchingAttributes = Map("attr3" -> "value3"))) should be (Some(b4))
+      reg.findBundle(ImportedPackage("t", matchingAttributes = Map("attr4" -> "value4"))) should be (Some(b4))
+      reg.findBundle(ImportedPackage("t", matchingAttributes = Map("attr3" -> "value3", "attr4" -> "value4"))) should be (Some(b4))
     }
   }
 }

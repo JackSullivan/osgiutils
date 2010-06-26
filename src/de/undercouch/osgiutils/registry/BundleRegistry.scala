@@ -56,7 +56,7 @@ class BundleRegistry {
    * The index of bundle fragments. Maps symbolic names of
    * host bundles to fragments
    */
-  private val fragments = new LinkedMultiMap[String, BundleInfo]()
+  private val fragmentIndex = new LinkedMultiMap[String, BundleInfo]()
   
   /**
    * Adds a bundle to the registry
@@ -79,7 +79,7 @@ class BundleRegistry {
       ExportedPackageItem(ep, bundle)) }
     
     //add fragment to index
-    for (host <- bundle.fragmentHost) fragments.addBinding(host.symbolicName, bundle)
+    for (host <- bundle.fragmentHost) fragmentIndex.addBinding(host.symbolicName, bundle)
   }
   
   /**
@@ -111,7 +111,7 @@ class BundleRegistry {
     //val rb = calculateRequiredBundles(bundle)
     //find required bundles
     //TODO optional bundles should not prevent resolving
-    var result = (bundle.requiredBundles flatMap findBundle).toSet
+    var result = (bundle.requiredBundles flatMap { r => findBundle(r) }).toSet
     //if (rb forall isResolved) ResolverResult(bundle, true) else ResolverResult(bundle, false)
     ResolverResult(bundle, false)
     
@@ -140,8 +140,41 @@ class BundleRegistry {
    * in the registry or if the bundle itself is not known by the registry
    */
   def findFragments(bundle: BundleInfo): Iterable[BundleInfo] = {
-    fragments.get(bundle.symbolicName) map { candidates =>
+    fragmentIndex.get(bundle.symbolicName) map { candidates =>
       candidates filter { _.fragmentHost.get.version contains bundle.version }
     } getOrElse mutable.Set.empty[BundleInfo]
+  }
+  
+  /**
+   * Finds a unique bundle in the registry that exports a package
+   * that matches the given import-package constraint
+   * @param r the import-package constraint
+   * @return the bundle that exports a package that matches the
+   * constraint or None if there is no such bundle in the registry
+   */
+  def findBundle(i: ImportedPackage): Option[BundleInfo] = {
+    exportedPackageIndex.get(i.name) flatMap { candidates =>
+      val result = candidates filter { c =>
+        //check if the version of the exported package matches the required one
+        i.version contains c.pkg.version
+      } filter { c =>
+        //check if there is a required bundle symbolic name
+        //if so, filter out candidates that do not match
+        (for (sn <- i.bundleSymbolicName) yield c.bundle.symbolicName == sn) getOrElse true
+      } filter { c =>
+        //filter out candidates that do not match the required bundle version
+        i.bundleVersion contains c.bundle.version
+      } filter { c =>
+        //filter out candidates that require mandatory attributes
+        //the imported-package declaration does not specify
+        c.pkg.mandatoryAttributes forall i.matchingAttributes.contains
+      } filter { c =>
+        //check attributes and filter out candidates that do not match
+        i.matchingAttributes forall { ia =>
+          (for (ca <- c.pkg.matchingAttributes.get(ia._1)) yield ia._2 == ca) getOrElse false
+        }
+      }
+      if (result.isEmpty) None else Some(result.iterator.next.bundle)
+    }
   }
 }
