@@ -20,6 +20,17 @@ import de.undercouch.osgiutils._
  */
 class BundleRegistry {
   /**
+   * A MultiMap which keeps the order of inserted elements. This is necessary since
+   * there is a prioritization of registered bundles: bundles with a lower ID (i.e.
+   * which have been added first) should be prefered during resolving.
+   * @author Michel Kraemer
+   */
+  private class LinkedMultiMap[A, B] extends mutable.LinkedHashMap[A, mutable.Set[B]]
+    with mutable.MultiMap[A, B] {
+    override protected def makeSet: mutable.Set[B] = new mutable.LinkedHashSet[B]
+  }
+  
+  /**
    * An item in the index of exported packages
    * @author Michel Kraemer
    */
@@ -33,21 +44,19 @@ class BundleRegistry {
   /**
    * The index of bundles. Maps symbolic names to bundles.
    */
-  private val symbolicNameIndex = new mutable.LinkedHashMap[String, mutable.Set[BundleInfo]]()
-    with mutable.MultiMap[String, BundleInfo] {
-    override protected def makeSet: mutable.Set[BundleInfo] =
-      new mutable.LinkedHashSet[BundleInfo]
-  }
+  private val symbolicNameIndex = new LinkedMultiMap[String, BundleInfo]()
   
   /**
    * The index of exported packages. Maps package names to
    * exported packages and respective bundles
    */
-  private val exportedPackageIndex = new mutable.LinkedHashMap[String, mutable.Set[ExportedPackageItem]]()
-    with mutable.MultiMap[String, ExportedPackageItem] {
-    override protected def makeSet: mutable.Set[ExportedPackageItem] =
-      new mutable.LinkedHashSet[ExportedPackageItem]
-  }
+  private val exportedPackageIndex = new LinkedMultiMap[String, ExportedPackageItem]()
+  
+  /**
+   * The index of bundle fragments. Maps symbolic names of
+   * host bundles to fragments
+   */
+  private val fragments = new LinkedMultiMap[String, BundleInfo]()
   
   /**
    * Adds a bundle to the registry
@@ -68,15 +77,18 @@ class BundleRegistry {
     //add exported packages to index
     bundle.exportedPackages foreach { ep => exportedPackageIndex.addBinding(ep.name,
       ExportedPackageItem(ep, bundle)) }
+    
+    //add fragment to index
+    for (host <- bundle.fragmentHost) fragments.addBinding(host.symbolicName, bundle)
   }
   
   /**
    * Trys to resolve all bundles not yet resolved
    * @return a list of resolver results
    */
-  def resolveBundles(): Seq[ResolverResult] = {
+  def resolveBundles(): Iterable[ResolverResult] = {
     for (b <- bundles if !b._2.resolved) resolveBundle(b._1)
-    bundles.values.toSeq
+    bundles.values
   }
   
   /**
@@ -118,5 +130,18 @@ class BundleRegistry {
       val result = candidates filter { r.version contains _.version }
       if (result.isEmpty) None else Some(result.iterator.next)
     }
+  }
+  
+  /**
+   * Finds all fragments of a given bundle
+   * @param bundle the fragment host
+   * @return the list of fragments for the given bundle or
+   * an empty list if there are no fragment for this bundle
+   * in the registry or if the bundle itself is not known by the registry
+   */
+  def findFragments(bundle: BundleInfo): Iterable[BundleInfo] = {
+    fragments.get(bundle.symbolicName) map { candidates =>
+      candidates filter { _.fragmentHost.get.version contains bundle.version }
+    } getOrElse mutable.Set.empty[BundleInfo]
   }
 }
