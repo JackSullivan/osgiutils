@@ -12,6 +12,7 @@
 package de.undercouch.osgiutils.registry
 
 import scala.collection._
+import scala.reflect.BeanProperty
 import de.undercouch.osgiutils._
 
 /**
@@ -19,6 +20,8 @@ import de.undercouch.osgiutils._
  * @author Michel Kraemer
  */
 class BundleRegistry {
+  import BundleRegistry._
+  
   /**
    * A MultiMap which keeps the order of inserted elements. This is necessary since
    * there is a prioritization of registered bundles: bundles with a lower ID (i.e.
@@ -69,7 +72,7 @@ class BundleRegistry {
       throw new IllegalStateException("Bundle has already been added to the registry")
     
     //add bundle to registry
-    bundles += (bundle -> ResolverResult(bundle))
+    bundles += (bundle -> Unresolved(bundle))
     
     //add bundle to index
     symbolicNameIndex.addBinding(bundle.symbolicName, bundle)
@@ -87,7 +90,7 @@ class BundleRegistry {
    * @return a list of resolver results
    */
   def resolveBundles(): Iterable[ResolverResult] = {
-    for (b <- bundles if !b._2.resolved) resolveBundle(b._1)
+    for (b <- bundles) resolveBundle(b._1)
     bundles.values
   }
   
@@ -97,8 +100,10 @@ class BundleRegistry {
    * @return true if the bundle is known by the registry and
    * if it is resolved, false otherwise
    */
-  def isResolved(bundle: BundleInfo): Boolean =
-    (for (b <- bundles.get(bundle)) yield b.resolved) getOrElse false
+  def isResolved(bundle: BundleInfo): Boolean = bundles.get(bundle) match {
+    case Some(Resolved(_)) => true
+    case _ => false
+  }
   
   /**
    * Trys to resolve a single bundle (no matter if it has
@@ -106,16 +111,79 @@ class BundleRegistry {
    * @param bundle the bundle to resolve
    * @return the resolver result
    */
-  def resolveBundle(bundle: BundleInfo): ResolverResult = {
+  def resolveBundle(bundle: BundleInfo): ResolverResult = bundles.get(bundle) match {
+    case Some(r: Resolved) => r
+    case _ => resolveBundleInternal(bundle)
+  }
+  
+  def resolveBundleInternal(bundle: BundleInfo): ResolverResult = {
     //TODO
     //val rb = calculateRequiredBundles(bundle)
     //find required bundles
     //TODO optional bundles should not prevent resolving
     var result = (bundle.requiredBundles flatMap { r => findBundle(r) }).toSet
     //if (rb forall isResolved) ResolverResult(bundle, true) else ResolverResult(bundle, false)
-    ResolverResult(bundle, false)
+    Unresolved(bundle)
     
     //TODO put resolved bundle back into map of bundles
+  }
+  
+  /**
+   * Calculates the transitive dependencies of the given bundle. This
+   * method returns a list of ResolverResult objects. Each ResolverResult object describes
+   * either a dependency to a bundle known by the registry (no matter if it is
+   * resolved or not) or a missing dependency.
+   * @param bundle the bundle to calculate the transitive dependencies for
+   * @param includeOptional true if optional dependencies should also be
+   * calculated if they are known to the registry
+   * @return a list of ResolverResult objects that describe either valid
+   * dependencies (resolved or unresolved bundles) or missing ones
+   */
+  def calculateRequiredBundles(bundle: BundleInfo, includeOptional: Boolean = false): Iterable[ResolverResult] = {
+    //TODO calculate transitive dependencies
+    calculateRequiredBundlesShallow(bundle, includeOptional)
+  }
+  
+  /**
+   * Calculates the direct, non-transitive dependencies of the given bundle. This
+   * method returns a list of ResolverResult objects. Each ResolverResult object describes
+   * either a dependency to a bundle known by the registry (no matter if it is
+   * resolved or not) or a missing dependency.
+   * @param bundle the bundle to calculate the direct dependencies for
+   * @param includeOptional true if optional dependencies should also be
+   * calculated if they are known to the registry
+   * @return a list of ResolverResult objects that describe either valid
+   * dependencies (resolved or unresolved bundles) or missing ones
+   */
+  def calculateRequiredBundlesShallow(bundle: BundleInfo, includeOptional: Boolean = false): Iterable[ResolverResult] = {
+    //calculate list of required bundles but do not include optional bundles
+    //if includeOptional is false or if they are unknown to the registry
+    val a = bundle.requiredBundles filter { includeOptional || !_.optional } flatMap { rb =>
+      findBundle(rb) match {
+        case Some(b) => bundles.get(b)
+        case None if rb.optional => None
+        case None => Some(MissingRequiredBundle(bundle, rb))
+      }
+    }
+    
+    //calculate list of required bundles by imported packages
+    val b = bundle.importedPackages filter { includeOptional || !_.optional } flatMap { ip =>
+      findBundle(ip) match {
+        case Some(b) => bundles.get(b)
+        case None if ip.optional => None
+        case None => Some(MissingImportedPackage(bundle, ip))
+      }
+    }
+    
+    //add fragment host as required bundle if there is any
+    val c = bundle.fragmentHost map { fh =>
+      findBundle(fh) match {
+        case Some(b) => bundles.get(b).get
+        case None => MissingFragmentHost(bundle, fh)
+      }
+    }
+    
+    a ++ b ++ c
   }
   
   /**
@@ -198,4 +266,21 @@ class BundleRegistry {
       if (result.isEmpty) None else Some(result.iterator.next.bundle)
     }
   }
+}
+
+/**
+ * Static definitions for the BundleRegistry
+ * @author Michel Kraemer
+ */
+object BundleRegistry {
+  trait ResolverError
+  sealed abstract class ResolverResult(@BeanProperty val bundle: BundleInfo)
+  case class Unresolved(b: BundleInfo) extends ResolverResult(b)
+  case class Resolved(b: BundleInfo) extends ResolverResult(b)
+  case class MissingRequiredBundle(b: BundleInfo,
+      @BeanProperty val requiredBundle: RequiredBundle) extends ResolverResult(b) with ResolverError
+  case class MissingImportedPackage(b: BundleInfo,
+      @BeanProperty val importedPackage: ImportedPackage) extends ResolverResult(b) with ResolverError
+  case class MissingFragmentHost(b: BundleInfo,
+      @BeanProperty val fragmentHost: FragmentHost) extends ResolverResult(b) with ResolverError
 }

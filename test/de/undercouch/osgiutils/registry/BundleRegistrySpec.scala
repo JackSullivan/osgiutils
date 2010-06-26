@@ -23,6 +23,8 @@ import de.undercouch.osgiutils._
  */
 @RunWith(classOf[JUnitRunner])
 class BundleRegistrySpec extends WordSpec with ShouldMatchers {
+  import BundleRegistry._
+  
   private def makeBundle(symbolicName: String, version: Version = Version.Default,
     fragmentHost: Option[FragmentHost] = None,
     exportedPackages: Array[ExportedPackage] = Array.empty,
@@ -191,6 +193,57 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
       reg.findBundle(ImportedPackage("t", matchingAttributes = Map("attr3" -> "value3"))) should be (Some(b4))
       reg.findBundle(ImportedPackage("t", matchingAttributes = Map("attr4" -> "value4"))) should be (Some(b4))
       reg.findBundle(ImportedPackage("t", matchingAttributes = Map("attr3" -> "value3", "attr4" -> "value4"))) should be (Some(b4))
+    }
+    
+    "not calculate required bundles" in {
+      val br2 = RequiredBundle("A")
+      val b2 = makeBundle("B", requiredBundles = Array(br2))
+      val br3 = ImportedPackage("p")
+      val b3 = makeBundle("C", importedPackages = Array(br3))
+      val br6 = FragmentHost("A")
+      val b6 = makeBundle("F", fragmentHost = Some(br6))
+      
+      val reg = new BundleRegistry()
+      
+      reg.calculateRequiredBundles(b2) should be (Seq(MissingRequiredBundle(b2, br2)))
+      reg.calculateRequiredBundles(b3) should be (Seq(MissingImportedPackage(b3, br3)))
+      reg.calculateRequiredBundles(b6) should be (Seq(MissingFragmentHost(b6, br6)))
+    }
+    
+    "calculate required bundles" in {
+      val b1 = makeBundle("A", exportedPackages = Array(ExportedPackage("p")))
+      val b2 = makeBundle("B", requiredBundles = Array(RequiredBundle("A")))
+      val b3 = makeBundle("C", importedPackages = Array(ImportedPackage("p")))
+      val b4 = makeBundle("D", requiredBundles = Array(RequiredBundle("A", true)))
+      val b5 = makeBundle("E", importedPackages = Array(ImportedPackage("p", true)))
+      val b6 = makeBundle("F", fragmentHost = Some(FragmentHost("A")))
+      
+      val ub1: ResolverResult = Unresolved(b1)
+      
+      val reg = new BundleRegistry()
+      reg.add(b1)
+      
+      reg.calculateRequiredBundles(b2) should be (Seq(ub1))
+      reg.calculateRequiredBundles(b3) should be (Seq(ub1))
+      reg.calculateRequiredBundles(b4) should be (Seq.empty)
+      reg.calculateRequiredBundles(b4, true) should be (Seq(ub1))
+      reg.calculateRequiredBundles(b5) should be (Seq.empty)
+      reg.calculateRequiredBundles(b5, true) should be (Seq(ub1))
+      reg.calculateRequiredBundles(b6) should be (Seq(ub1))
+    }
+    
+    "not produce error on missing optional dependencies" in {
+      val br2 = RequiredBundle("A", true)
+      val b2 = makeBundle("B", requiredBundles = Array(br2))
+      val br3 = ImportedPackage("p", true)
+      val b3 = makeBundle("C", importedPackages = Array(br3))
+      
+      val reg = new BundleRegistry()
+      
+      reg.calculateRequiredBundles(b2) should be (Seq.empty)
+      reg.calculateRequiredBundles(b3) should be (Seq.empty)
+      reg.calculateRequiredBundles(b2, true) should be (Seq.empty)
+      reg.calculateRequiredBundles(b3, true) should be (Seq.empty)
     }
   }
 }
