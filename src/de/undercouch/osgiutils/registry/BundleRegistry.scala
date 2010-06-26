@@ -23,17 +23,17 @@ class BundleRegistry {
    * An item in the index of exported packages
    * @author Michel Kraemer
    */
-  case class ExportedPackageItem(pkg: ExportedPackage, bundle: BundleInfo)
+  private case class ExportedPackageItem(pkg: ExportedPackage, bundle: BundleInfo)
   
   /**
    * The registered bundles
    */
-  var bundles = mutable.LinkedHashMap[BundleInfo, ResolverResult]()
+  private var bundles = mutable.LinkedHashMap[BundleInfo, ResolverResult]()
   
   /**
    * The index of bundles. Maps symbolic names to bundles.
    */
-  val symbolicNameIndex = new mutable.LinkedHashMap[String, mutable.Set[BundleInfo]]()
+  private val symbolicNameIndex = new mutable.LinkedHashMap[String, mutable.Set[BundleInfo]]()
     with mutable.MultiMap[String, BundleInfo] {
     override protected def makeSet: mutable.Set[BundleInfo] =
       new mutable.LinkedHashSet[BundleInfo]
@@ -43,7 +43,7 @@ class BundleRegistry {
    * The index of exported packages. Maps package names to
    * exported packages and respective bundles
    */
-  val exportedPackageIndex = new mutable.LinkedHashMap[String, mutable.Set[ExportedPackageItem]]()
+  private val exportedPackageIndex = new mutable.LinkedHashMap[String, mutable.Set[ExportedPackageItem]]()
     with mutable.MultiMap[String, ExportedPackageItem] {
     override protected def makeSet: mutable.Set[ExportedPackageItem] =
       new mutable.LinkedHashSet[ExportedPackageItem]
@@ -75,7 +75,7 @@ class BundleRegistry {
    * @return a list of resolver results
    */
   def resolveBundles(): Seq[ResolverResult] = {
-    bundles foreach { rr => if (!rr._2.resolved) resolveBundle(rr._1) }
+    for (b <- bundles if !b._2.resolved) resolveBundle(b._1)
     bundles.values.toSeq
   }
   
@@ -98,7 +98,7 @@ class BundleRegistry {
     //TODO
     //val rb = calculateRequiredBundles(bundle)
     //find required bundles
-    //TODO optional bundles should not provide resolving
+    //TODO optional bundles should not prevent resolving
     var result = (bundle.requiredBundles flatMap findBundle).toSet
     //if (rb forall isResolved) ResolverResult(bundle, true) else ResolverResult(bundle, false)
     ResolverResult(bundle, false)
@@ -115,10 +115,8 @@ class BundleRegistry {
    */
   def findBundle(r: RequiredBundle): Option[BundleInfo] = {
     symbolicNameIndex.get(r.symbolicName) flatMap { candidates =>
-      val r = candidates filter { bundle =>
-        true
-      }
-      if (r.isEmpty) None else Some(r.iterator.next)
+      val result = candidates filter { r.version contains _.version }
+      if (result.isEmpty) None else Some(result.iterator.next)
     }
   }
 }

@@ -28,6 +28,14 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
       Array.empty, Array.empty, Array.empty)
   
   "BundleRegistry" should {
+    "not accept a bundle twice" in {
+      val b1 = makeBundle("A");
+      
+      val reg = new BundleRegistry()
+      reg.add(b1)
+      evaluating { reg.add(b1) } should produce [IllegalStateException]
+    }
+    
     "not find a required bundle" in {
       val b2 = makeBundle("B", Version(1, 2, 3))
       
