@@ -273,14 +273,41 @@ class BundleRegistry {
  * @author Michel Kraemer
  */
 object BundleRegistry {
+  /**
+   * A marker interface for resolver errors
+   */
   trait ResolverError
+  
+  /**
+   * The result of the resolving process
+   */
   sealed abstract class ResolverResult(@BeanProperty val bundle: BundleInfo)
+  
+  /**
+   * Describes an unresolved bundle
+   */
   case class Unresolved(b: BundleInfo) extends ResolverResult(b)
+  
+  /**
+   * Describes a resolved bundle
+   */
   case class Resolved(b: BundleInfo) extends ResolverResult(b)
+  
+  /**
+   * This resolver error occurs when a required bundle could not be found
+   */
   case class MissingRequiredBundle(b: BundleInfo,
-      @BeanProperty val requiredBundle: RequiredBundle) extends ResolverResult(b) with ResolverError
+    @BeanProperty val requiredBundle: RequiredBundle) extends ResolverResult(b) with ResolverError
+  
+  /**
+   * This resolver error occurs when an imported package could not be found
+   */
   case class MissingImportedPackage(b: BundleInfo,
-      @BeanProperty val importedPackage: ImportedPackage) extends ResolverResult(b) with ResolverError
+    @BeanProperty val importedPackage: ImportedPackage) extends ResolverResult(b) with ResolverError
+  
+  /**
+   * This resolver error occurs when the host of a fragment could not be found
+   */
   case class MissingFragmentHost(b: BundleInfo,
-      @BeanProperty val fragmentHost: FragmentHost) extends ResolverResult(b) with ResolverError
+    @BeanProperty val fragmentHost: FragmentHost) extends ResolverResult(b) with ResolverError
 }
