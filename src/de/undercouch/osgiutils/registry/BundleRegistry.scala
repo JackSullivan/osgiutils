@@ -120,17 +120,38 @@ class BundleRegistry {
   
   /**
    * Finds a unique bundle in the registry that matches the
+   * given constraints
+   * @param symbolicName the symbolicName of the bundle to find
+   * @param version the version range the returned bundle should match
+   * @return the bundle that matches the constraints or None if
+   * there is no such bundle in the registry
+   */
+  def findBundle(symbolicName: String, version: VersionRange): Option[BundleInfo] = {
+    symbolicNameIndex.get(symbolicName) flatMap { candidates =>
+      val result = candidates filter { version contains _.version }
+      if (result.isEmpty) None else Some(result.iterator.next)
+    }
+  }
+  
+  /**
+   * Finds a unique bundle in the registry that matches the
+   * given fragment-host constraint
+   * @param fh the fragment-host constraint
+   * @return the bundle that matches the constraint or None if
+   * there is no such bundle in the registry
+   */
+  def findBundle(fh: FragmentHost): Option[BundleInfo] =
+    findBundle(fh.symbolicName, fh.version)
+  
+  /**
+   * Finds a unique bundle in the registry that matches the
    * given require-bundle constraint
    * @param r the require-bundle constraint
    * @return the bundle that matches the constraint or None if
    * there is no such bundle in the registry
    */
-  def findBundle(r: RequiredBundle): Option[BundleInfo] = {
-    symbolicNameIndex.get(r.symbolicName) flatMap { candidates =>
-      val result = candidates filter { r.version contains _.version }
-      if (result.isEmpty) None else Some(result.iterator.next)
-    }
-  }
+  def findBundle(r: RequiredBundle): Option[BundleInfo] =
+    findBundle(r.symbolicName, r.version)
   
   /**
    * Finds all fragments of a given bundle

@@ -40,6 +40,28 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
       evaluating { reg.add(b1) } should produce [IllegalStateException]
     }
     
+    "not find a bundle" in {
+      val b2 = makeBundle("B", Version(1, 2, 3))
+      
+      val reg = new BundleRegistry()
+      reg.add(b2)
+      
+      reg.findBundle("A", VersionRange.Default) should be (None)
+      reg.findBundle("B", VersionRange(Version(2))) should be (None)
+    }
+    
+    "find a bundle" in {
+      val b1 = makeBundle("A");
+      val b2 = makeBundle("B", Version(1, 2, 3))
+      
+      val reg = new BundleRegistry()
+      reg.add(b1)
+      reg.add(b2)
+      
+      reg.findBundle("A", VersionRange.Default) should be (Some(b1))
+      reg.findBundle("B", VersionRange(Version(1))) should be (Some(b2))
+    }
+    
     "not find a required bundle" in {
       val b2 = makeBundle("B", Version(1, 2, 3))
       
@@ -93,6 +115,28 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
       val bf2 = reg.findFragments(b2)
       bf2 should have size(1)
       bf2 should contain (f2)
+    }
+    
+    "not find fragment hosts" in {
+      val b2 = makeBundle("B", Version(1, 2, 3))
+      
+      val reg = new BundleRegistry()
+      reg.add(b2)
+      
+      reg.findBundle(FragmentHost("A")) should be (None)
+      reg.findBundle(FragmentHost("B", version = VersionRange(Version(2)))) should be (None)
+    }
+    
+    "find fragment hosts" in {
+      val b1 = makeBundle("A");
+      val b2 = makeBundle("B", Version(1, 2, 3))
+      
+      val reg = new BundleRegistry()
+      reg.add(b1)
+      reg.add(b2)
+      
+      reg.findBundle(FragmentHost("A")) should be (Some(b1))
+      reg.findBundle(FragmentHost("B", version = VersionRange(Version(1)))) should be (Some(b2))
     }
     
     "not find bundles by exported package" in {
