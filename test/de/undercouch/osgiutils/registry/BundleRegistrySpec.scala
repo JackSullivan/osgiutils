@@ -205,9 +205,9 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
       
       val reg = new BundleRegistry()
       
-      reg.calculateRequiredBundles(b2) should be (Seq(MissingRequiredBundle(b2, br2)))
-      reg.calculateRequiredBundles(b3) should be (Seq(MissingImportedPackage(b3, br3)))
-      reg.calculateRequiredBundles(b6) should be (Seq(MissingFragmentHost(b6, br6)))
+      reg.calculateRequiredBundles(b2) should be (Set(MissingRequiredBundle(b2, br2)))
+      reg.calculateRequiredBundles(b3) should be (Set(MissingImportedPackage(b3, br3)))
+      reg.calculateRequiredBundles(b6) should be (Set(MissingFragmentHost(b6, br6)))
     }
     
     "calculate required bundles" in {
@@ -223,13 +223,13 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
       val reg = new BundleRegistry()
       reg.add(b1)
       
-      reg.calculateRequiredBundles(b2) should be (Seq(ub1))
-      reg.calculateRequiredBundles(b3) should be (Seq(ub1))
-      reg.calculateRequiredBundles(b4) should be (Seq.empty)
-      reg.calculateRequiredBundles(b4, true) should be (Seq(ub1))
-      reg.calculateRequiredBundles(b5) should be (Seq.empty)
-      reg.calculateRequiredBundles(b5, true) should be (Seq(ub1))
-      reg.calculateRequiredBundles(b6) should be (Seq(ub1))
+      reg.calculateRequiredBundles(b2) should be (Set(ub1))
+      reg.calculateRequiredBundles(b3) should be (Set(ub1))
+      reg.calculateRequiredBundles(b4) should be (Set.empty)
+      reg.calculateRequiredBundles(b4, true) should be (Set(ub1))
+      reg.calculateRequiredBundles(b5) should be (Set.empty)
+      reg.calculateRequiredBundles(b5, true) should be (Set(ub1))
+      reg.calculateRequiredBundles(b6) should be (Set(ub1))
     }
     
     "not produce error on missing optional dependencies" in {
@@ -240,10 +240,53 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
       
       val reg = new BundleRegistry()
       
-      reg.calculateRequiredBundles(b2) should be (Seq.empty)
-      reg.calculateRequiredBundles(b3) should be (Seq.empty)
-      reg.calculateRequiredBundles(b2, true) should be (Seq.empty)
-      reg.calculateRequiredBundles(b3, true) should be (Seq.empty)
+      reg.calculateRequiredBundles(b2) should be (Set.empty)
+      reg.calculateRequiredBundles(b3) should be (Set.empty)
+      reg.calculateRequiredBundles(b2, true) should be (Set.empty)
+      reg.calculateRequiredBundles(b3, true) should be (Set.empty)
+    }
+    
+    "calculate transitive dependencies" in {
+      val b1 = makeBundle("A")
+      val b2 = makeBundle("B", requiredBundles = Array(RequiredBundle("A")))
+      val b3 = makeBundle("C", requiredBundles = Array(RequiredBundle("B")))
+      val b4 = makeBundle("D", requiredBundles = Array(RequiredBundle("B"), RequiredBundle("C")))
+      
+      val reg = new BundleRegistry()
+      reg.add(b1)
+      reg.add(b2)
+      reg.add(b3)
+      
+      reg.calculateRequiredBundles(b3) should (
+        have size (2) and
+        contain (Unresolved(b1): ResolverResult) and
+        contain (Unresolved(b2): ResolverResult)
+      )
+      
+      reg.calculateRequiredBundles(b4) should (
+        have size (3) and
+        contain (Unresolved(b1): ResolverResult) and
+        contain (Unresolved(b2): ResolverResult) and
+        contain (Unresolved(b3): ResolverResult)
+      )
+    }
+    
+    "throw exception on dependency cycle" in {
+      val b1 = makeBundle("A", requiredBundles = Array(RequiredBundle("C")))
+      val b2 = makeBundle("B", requiredBundles = Array(RequiredBundle("A")))
+      val b3 = makeBundle("C", requiredBundles = Array(RequiredBundle("B")))
+      
+      val reg = new BundleRegistry()
+      reg.add(b1)
+      reg.add(b2)
+      reg.add(b3)
+      
+      evaluating { reg.calculateRequiredBundles(b3) } should produce [DependencyCycleException]
+      try {
+        reg.calculateRequiredBundles(b3)
+      } catch {
+        case e: DependencyCycleException => e.path should be (Array(b3, b2, b1, b3))
+      }
     }
   }
 }

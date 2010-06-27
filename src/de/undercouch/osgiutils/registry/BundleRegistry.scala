@@ -138,24 +138,49 @@ class BundleRegistry {
    * calculated if they are known to the registry
    * @return a list of ResolverResult objects that describe either valid
    * dependencies (resolved or unresolved bundles) or missing ones
+   * @throws DependencyCycleException if the transitive dependencies contain a cycle
    */
-  def calculateRequiredBundles(bundle: BundleInfo, includeOptional: Boolean = false): Iterable[ResolverResult] = {
-    //TODO calculate transitive dependencies
-    calculateRequiredBundlesShallow(bundle, includeOptional)
+  def calculateRequiredBundles(bundle: BundleInfo, includeOptional: Boolean = false): Set[ResolverResult] =
+    calculateRequiredBundlesInternal(bundle, includeOptional, List.empty)    
+  
+  private def calculateRequiredBundlesInternal(bundle: BundleInfo, includeOptional: Boolean = false,
+    path: List[BundleInfo]): Set[ResolverResult] = {
+    //calculate direct dependencies for the current bundle
+    val deps = calculateRequiredBundlesShallow(bundle, includeOptional)
+    
+    //calculate transitive dependencies
+    val transitive = deps flatMap {
+      case _: ResolverError =>
+        //don't calculate dependencies for errors
+        Nil
+      
+      case d if path.contains(d.bundle) =>
+        //the current bundle depends on a bundle already in the current path
+        //that means that a dependency cycle has been detected
+        val cycle = (path drop (path indexOf d.bundle)) ++ List(bundle, d.bundle)
+        val symbolicNames = cycle map { _.symbolicName } reduceLeft { _ + ", " + _ }
+        throw new DependencyCycleException("Dependency cycle detected: " + symbolicNames, cycle.toArray)
+        
+      case d =>
+        //calculate transitive dependencies
+        calculateRequiredBundlesInternal(d.bundle, includeOptional, path ++ List(bundle))
+    }
+    
+    deps ++ transitive
   }
   
   /**
    * Calculates the direct, non-transitive dependencies of the given bundle. This
-   * method returns a list of ResolverResult objects. Each ResolverResult object describes
+   * method returns a set of ResolverResult objects. Each ResolverResult object describes
    * either a dependency to a bundle known by the registry (no matter if it is
    * resolved or not) or a missing dependency.
    * @param bundle the bundle to calculate the direct dependencies for
    * @param includeOptional true if optional dependencies should also be
    * calculated if they are known to the registry
-   * @return a list of ResolverResult objects that describe either valid
+   * @return a set of ResolverResult objects that describe either valid
    * dependencies (resolved or unresolved bundles) or missing ones
    */
-  def calculateRequiredBundlesShallow(bundle: BundleInfo, includeOptional: Boolean = false): Iterable[ResolverResult] = {
+  def calculateRequiredBundlesShallow(bundle: BundleInfo, includeOptional: Boolean = false): Set[ResolverResult] = {
     //calculate list of required bundles but do not include optional bundles
     //if includeOptional is false or if they are unknown to the registry
     val a = bundle.requiredBundles filter { includeOptional || !_.optional } flatMap { rb =>
@@ -183,7 +208,7 @@ class BundleRegistry {
       }
     }
     
-    a ++ b ++ c
+    (a ++ b ++ c).toSet
   }
   
   /**
