@@ -87,12 +87,11 @@ class BundleRegistry {
   
   /**
    * Trys to resolve all bundles not yet resolved
-   * @return a list of resolver results
+   * @return the errors occured during the resolving process. This
+   * set is empty if all bundles were resolved successfully.
    */
-  def resolveBundles(): Iterable[ResolverResult] = {
-    for (b <- bundles) resolveBundle(b._1)
-    bundles.values
-  }
+  def resolveBundles(): Set[ResolverError] =
+    bundles.foldLeft(Set.empty[ResolverError]) { (r, b) => r ++ resolveBundle(b._1) }
   
   /**
    * Checks if a bundle is resolved.
@@ -109,23 +108,27 @@ class BundleRegistry {
    * Trys to resolve a single bundle (no matter if it has
    * already been added to the registry or not)
    * @param bundle the bundle to resolve
-   * @return the resolver result
+   * @return the errors occured during the resolving process. This
+   * set is empty if the bundle was resolved successfully.
    */
-  def resolveBundle(bundle: BundleInfo): ResolverResult = bundles.get(bundle) match {
-    case Some(r: Resolved) => r
+  def resolveBundle(bundle: BundleInfo): Set[ResolverError] = bundles.get(bundle) match {
+    case Some(r: Resolved) => Set.empty
     case _ => resolveBundleInternal(bundle)
   }
   
-  def resolveBundleInternal(bundle: BundleInfo): ResolverResult = {
-    //TODO
-    //val rb = calculateRequiredBundles(bundle)
-    //find required bundles
-    //TODO optional bundles should not prevent resolving
-    var result = (bundle.requiredBundles flatMap { r => findBundle(r) }).toSet
-    //if (rb forall isResolved) ResolverResult(bundle, true) else ResolverResult(bundle, false)
-    Unresolved(bundle)
+  private def resolveBundleInternal(bundle: BundleInfo): Set[ResolverError] = {
+    //find resolver errors
+    val errors = calculateRequiredBundles(bundle) collect {
+      case d: ResolverError => d: ResolverError
+    }
     
-    //TODO put resolved bundle back into map of bundles
+    //check if there are missing dependencies
+    val r = if (errors.isEmpty) Resolved(bundle) else Unresolved(bundle)
+    
+    //update registry
+    if (bundles contains bundle) bundles(bundle) = r
+    
+    errors
   }
   
   /**
@@ -309,7 +312,7 @@ object BundleRegistry {
   sealed abstract class ResolverResult(@BeanProperty val bundle: BundleInfo)
   
   /**
-   * Describes an unresolved bundle
+   * Describes an unresolved bundle.
    */
   case class Unresolved(b: BundleInfo) extends ResolverResult(b)
   

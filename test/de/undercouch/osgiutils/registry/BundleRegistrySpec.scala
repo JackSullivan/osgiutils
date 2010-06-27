@@ -288,5 +288,65 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
         case e: DependencyCycleException => e.path should be (Array(b3, b2, b1, b3))
       }
     }
+    
+    "resolve bundles" in {
+      val b1 = makeBundle("A")
+      val b2 = makeBundle("B", requiredBundles = Array(RequiredBundle("A")))
+      
+      val reg = new BundleRegistry()
+      
+      reg.resolveBundle(b1) should be ('empty)
+      
+      reg.add(b1)
+      reg.isResolved(b1) should be (false)
+      reg.resolveBundles() should be ('empty)
+      reg.isResolved(b1) should be (true)
+      
+      reg.resolveBundle(b2) should be ('empty)
+      
+      reg.add(b2)
+      reg.isResolved(b1) should be (true)
+      reg.isResolved(b2) should be (false)
+      reg.resolveBundles() should be ('empty)
+      reg.isResolved(b1) should be (true)
+      reg.isResolved(b2) should be (true)
+      
+      val reg2 = new BundleRegistry()
+      reg2.add(b1)
+      reg2.add(b2)
+      
+      reg2.isResolved(b1) should be (false)
+      reg2.isResolved(b2) should be (false)
+      reg2.resolveBundles() should be ('empty)
+      reg2.isResolved(b1) should be (true)
+      reg2.isResolved(b2) should be (true)
+    }
+    
+    "not resolve bundles" in {
+      val b2 = makeBundle("B", requiredBundles = Array(RequiredBundle("A")))
+      
+      val reg = new BundleRegistry()
+      
+      reg.resolveBundle(b2) should be (Set(MissingRequiredBundle(b2, RequiredBundle("A"))))
+      
+      reg.add(b2)
+      reg.isResolved(b2) should be (false)
+      reg.resolveBundles() should be (Set(MissingRequiredBundle(b2, RequiredBundle("A"))))
+      reg.isResolved(b2) should be (false)
+    }
+    
+    "be able to recover from resolver error" in {
+      val b1 = makeBundle("A")
+      val b2 = makeBundle("B", requiredBundles = Array(RequiredBundle("A")))
+      
+      val reg = new BundleRegistry()
+      reg.add(b2)
+      
+      reg.resolveBundles() should be (Set(MissingRequiredBundle(b2, RequiredBundle("A"))))
+      
+      reg.add(b1)
+      
+      reg.resolveBundles() should be ('empty)
+    }
   }
 }
