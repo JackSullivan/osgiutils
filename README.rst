@@ -2,7 +2,18 @@
 OSGi Utilities
 ==============
 
-These are some OSGi helper classes written in Scala.
+These are some OSGi helper classes written in Scala. The OSGi Utilities include two modules:
+
+- The *bundle parser* reads OSGi manifests and provides a clean interface for accessing bundle attributes like symbolic name, bundle version, required bundles, imported and exported packages
+- The *bundle registry* maintains a list of bundles and is able to calculate transitive dependencies.
+
+The main goals of the project are:
+
+- Clean interface
+- Independence from OSGi containers like Eclipse Equinox, Apache Felix, ...
+- High performance
+- Use the power of functional programming
+- Accessibility from Scala and Java
 
 Compiling
 ---------
@@ -19,10 +30,18 @@ If everything runs successfully, you may create a .jar library::
 
 The library will be located under the ``target`` directory. It can also be used as an OSGi bundle.
 
+Eclipse
+.......
+
+The source code includes a Eclipse project file. You may use the `sbt-eclipse-plugin <http://github.com/Gekkio/sbt-eclipse-plugin>`_ to include libraries managed by sbt into the project's classpath.
+
 Usage
 -----
 
-The following example shows how to use the OSGi Utilities in Scala::
+Bundle Parser
+.............
+
+The following example shows how to use the bundle parser in Scala::
 
   import de.undercouch.osgiutils.BundleInfo
 
@@ -33,7 +52,7 @@ The following example shows how to use the OSGi Utilities in Scala::
   bi.exportedPackages foreach { ep => println(ep.name) }
   for (name <- bi.name) println(name)
 
-The library can also be used from Java::
+The parser can also be used from Java::
 
   import de.undercouch.osgiutils.BundleInfo;
   import de.undercouch.osgiutils.ExportedPackage;
@@ -47,6 +66,35 @@ The library can also be used from Java::
   }
   if (bi.getName().isDefined()) {
       System.out.println(bi.getName().get());
+  }
+
+Bundle Registry
+...............
+
+The bundle registry can be used to calculate bundle dependencies::
+
+  import de.undercouch.osgiutils.registry.BundleRegistry
+  import BundleRegistry._
+
+  val reg = new BundleRegistry()
+  reg.add(bundle1)
+  reg.add(bundle2)
+
+  //calculate dependencies of bundle2
+  val deps = reg.calculateRequiredBundles(bundle2)
+  ...
+
+  //try to resolve all bundles
+  val errors = reg.resolveBundles()
+  
+  //print out errors
+  for (e <- errors) e match {
+    case MissingRequiredBundle(bundle, r) =>
+      println("Bundle " + bundle.symbolicName + " is missing required bundle " + r.symbolicName)
+    case MissingImportedPackage(bundle, i) =>
+      println("Bundle " + bundle.symbolicName + " is missing imported package " + i.name)
+    case MissingFragmentHost(bundle, h) =>
+      println("Bundle " + bundle.symbolicName + " is missing fragment host " + h.symbolicName)
   }
 
 License
