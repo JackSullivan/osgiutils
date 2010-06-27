@@ -13,6 +13,7 @@ package de.undercouch.osgiutils.registry
 
 import scala.collection._
 import scala.reflect.BeanProperty
+import scala.util.Sorting
 import de.undercouch.osgiutils._
 
 /**
@@ -225,7 +226,7 @@ class BundleRegistry {
   def findBundle(symbolicName: String, version: VersionRange): Option[BundleInfo] = {
     symbolicNameIndex.get(symbolicName) flatMap { candidates =>
       val result = candidates filter { version contains _.version }
-      if (result.isEmpty) None else Some(result.iterator.next)
+      if (result.isEmpty) None else Some(prioritize(result))
     }
   }
   
@@ -291,8 +292,21 @@ class BundleRegistry {
           (for (ca <- c.pkg.matchingAttributes.get(ia._1)) yield ia._2 == ca) getOrElse false
         }
       }
-      if (result.isEmpty) None else Some(result.iterator.next.bundle)
+      if (result.isEmpty) None else Some(prioritize(result map { _.bundle }))
     }
+  }
+  
+  /**
+   * Prioritizes bundles
+   * @param bundles a list of bundles
+   * @return the bundle with the highest priority
+   */
+  private def prioritize(bundles: Iterable[BundleInfo]): BundleInfo = {
+    val arr = bundles.toArray
+    Sorting.stableSort(arr, { (a: BundleInfo, b: BundleInfo) =>
+      (isResolved(a) && !isResolved(b)) || (a.version > b.version)
+    })
+    arr(0)
   }
 }
 

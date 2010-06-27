@@ -178,12 +178,12 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
       reg.add(b4)
       
       reg.findBundle(ImportedPackage("p")) should be (Some(b3))
-      reg.findBundle(ImportedPackage("q")) should be (Some(b3))
-      reg.findBundle(ImportedPackage("q", version = VersionRange(Version(1)))) should be (Some(b3))
+      reg.findBundle(ImportedPackage("q")) should be (Some(b4))
+      reg.findBundle(ImportedPackage("q", version = VersionRange(Version(1)))) should be (Some(b4))
       reg.findBundle(ImportedPackage("q", version = VersionRange(Version(2)))) should be (Some(b4))
       reg.findBundle(ImportedPackage("q", bundleSymbolicName = Some("C"))) should be (Some(b3))
       reg.findBundle(ImportedPackage("q", bundleSymbolicName = Some("D"))) should be (Some(b4))
-      reg.findBundle(ImportedPackage("q", bundleVersion = VersionRange(Version(3)))) should be (Some(b3))
+      reg.findBundle(ImportedPackage("q", bundleVersion = VersionRange(Version(3)))) should be (Some(b4))
       reg.findBundle(ImportedPackage("q", bundleVersion = VersionRange(Version(4)))) should be (Some(b4))
       reg.findBundle(ImportedPackage("s")) should be (Some(b4))
       reg.findBundle(ImportedPackage("s", matchingAttributes = Map("attr1" -> "value1"))) should be (Some(b3))
@@ -347,6 +347,37 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
       reg.add(b1)
       
       reg.resolveBundles() should be ('empty)
+    }
+    
+    "handle priorities correctly" in {
+      val b1 = makeBundle("A", version = Version(1), exportedPackages = Array(ExportedPackage("p")))
+      val b2 = makeBundle("A", version = Version(2), exportedPackages = Array(ExportedPackage("p")))
+      val b3 = makeBundle("A", version = Version(2), exportedPackages = Array(ExportedPackage("p")))
+      
+      val reg = new BundleRegistry()
+      reg.add(b1)
+      reg.add(b2)
+      reg.add(b3)
+      
+      reg.resolveBundle(b2)
+      reg.resolveBundle(b3)
+      reg.isResolved(b1) should be (false)
+      reg.isResolved(b2) should be (true)
+      reg.isResolved(b3) should be (true)
+      
+      //resolved bundles should be preferred over unresolved ones
+      //bundles added first (b2) should be preferred over last ones (b3)
+      reg.findBundle(RequiredBundle("A")) should be (Some(b2))
+      reg.findBundle(ImportedPackage("p")) should be (Some(b2))
+      
+      reg.resolveBundle(b1)
+      reg.isResolved(b1) should be (true)
+      reg.isResolved(b2) should be (true)
+      reg.isResolved(b3) should be (true)
+      
+      //bundles with higher version should be preferred
+      reg.findBundle(RequiredBundle("A")) should be (Some(b2))
+      reg.findBundle(ImportedPackage("p")) should be (Some(b2))
     }
   }
 }
