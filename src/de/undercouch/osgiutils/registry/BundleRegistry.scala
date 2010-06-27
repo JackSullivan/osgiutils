@@ -318,7 +318,7 @@ object BundleRegistry {
   /**
    * A marker interface for resolver errors
    */
-  trait ResolverError
+  sealed trait ResolverError
   
   /**
    * The result of the resolving process
