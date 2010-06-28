@@ -379,5 +379,15 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
       reg.findBundle(RequiredBundle("A")) should be (Some(b2))
       reg.findBundle(ImportedPackage("p")) should be (Some(b2))
     }
+    
+    "handle internal dependencies correctly" in {
+      val b1 = makeBundle("A", version = Version(1), exportedPackages = Array(ExportedPackage("p")),
+        importedPackages = Array(ImportedPackage("p")))
+      
+      val reg = new BundleRegistry()
+      reg.add(b1)
+      
+      reg.resolveBundles()
+    }
   }
 }

@@ -197,10 +197,26 @@ class BundleRegistry {
     
     //calculate list of required bundles by imported packages
     val b = bundle.importedPackages filter { includeOptional || !_.optional } flatMap { ip =>
-      findBundle(ip) match {
-        case Some(b) => bundles.get(b)
-        case None if ip.optional => None
-        case None => Some(MissingImportedPackage(bundle, ip))
+      val r = findBundles(ip).toList
+      r match {
+        case head :: Nil if head == bundle =>
+          //ignore internal dependency, but
+          //do not produce an error
+          None
+        case head :: tail if head == bundle =>
+          //ignore internal dependency and
+          //use the external one
+          bundles.get(tail(0))
+        case head :: Nil =>
+          //use concrete dependency
+          bundles.get(head)
+        case List() if ip.optional =>
+          //ignore missing dependency if the
+          //import-package declaration is optional
+          None
+        case List() =>
+          //produce missing dependency error
+          Some(MissingImportedPackage(bundle, ip))
       }
     }
     
@@ -226,7 +242,7 @@ class BundleRegistry {
   def findBundle(symbolicName: String, version: VersionRange): Option[BundleInfo] = {
     symbolicNameIndex.get(symbolicName) flatMap { candidates =>
       val result = candidates filter { version contains _.version }
-      if (result.isEmpty) None else Some(prioritize(result))
+      if (result.isEmpty) None else Some(prioritize(result)(0))
     }
   }
   
@@ -271,8 +287,13 @@ class BundleRegistry {
    * constraint or None if there is no such bundle in the registry
    */
   def findBundle(i: ImportedPackage): Option[BundleInfo] = {
-    exportedPackageIndex.get(i.name) flatMap { candidates =>
-      val result = candidates filter { c =>
+    val result = findBundles(i)
+    if (result.isEmpty) None else Some(result(0))
+  }
+  
+  private def findBundles(i: ImportedPackage): Array[BundleInfo] = {
+    val result = exportedPackageIndex.get(i.name) map { candidates =>
+      candidates filter { c =>
         //check if the version of the exported package matches the required one
         i.version contains c.pkg.version
       } filter { c =>
@@ -291,22 +312,26 @@ class BundleRegistry {
         i.matchingAttributes forall { ia =>
           (for (ca <- c.pkg.matchingAttributes.get(ia._1)) yield ia._2 == ca) getOrElse false
         }
+      } map {
+        //convert list of ExportPackage items to bundles
+        _.bundle
       }
-      if (result.isEmpty) None else Some(prioritize(result map { _.bundle }))
     }
+    prioritize(result getOrElse Set.empty)
   }
   
   /**
    * Prioritizes bundles
    * @param bundles a list of bundles
-   * @return the bundle with the highest priority
+   * @return the bundles sorted by their priority. The bundle with
+   * the highest priority is at position 0.
    */
-  private def prioritize(bundles: Iterable[BundleInfo]): BundleInfo = {
+  private def prioritize(bundles: Iterable[BundleInfo]): Array[BundleInfo] = {
     val arr = bundles.toArray
     Sorting.stableSort(arr, { (a: BundleInfo, b: BundleInfo) =>
       (isResolved(a) && !isResolved(b)) || (a.version > b.version)
     })
-    arr(0)
+    arr
   }
 }
 
