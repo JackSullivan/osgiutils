@@ -72,19 +72,19 @@ case class BundleInfo(
    * The packages exported by this bundle
    */
   @BeanProperty
-  val exportedPackages: Array[ExportedPackage],
+  val exportedPackages: List[ExportedPackage],
 
   /**
    * The packages imported by this bundle
    */
   @BeanProperty
-  val importedPackages: Array[ImportedPackage],
+  val importedPackages: List[ImportedPackage],
   
   /**
    * The bundles required by this bundle
    */
   @BeanProperty
-  val requiredBundles: Array[RequiredBundle]
+  val requiredBundles: List[RequiredBundle]
 ) {
   /**
    * Retrieves a parsed entry from the bundle's manifest
@@ -113,8 +113,8 @@ object BundleInfo {
   /**
    * Aliases for bundle manifest header items
    */
-  type HeaderClause = Array[String]
-  type Header = Array[HeaderClause]
+  type HeaderClause = List[String]
+  type Header = List[HeaderClause]
   
   //header parser result classes
   private sealed trait ParsedHeaderDecl
@@ -208,7 +208,7 @@ object BundleInfo {
    */
   private def parseManifestEntry(manifest: Manifest, name: String): Header = {
     val v = getSimpleManifestEntry(manifest, name)
-    if (v.isDefined) parseManifestEntry(v.get) else Array.empty
+    if (v.isDefined) parseManifestEntry(v.get) else List.empty
   }
   
   /**
@@ -241,7 +241,7 @@ object BundleInfo {
    * @return the parsed header clauses
    */
   private def parseManifestEntry(v: String): Header =
-    v.splitIf(((_: Char) == ',') withQuotes) map (v => (v.split(";")) map (_.trim))
+    (v.splitIf(((_: Char) == ',') withQuotes).toList) map (v => (v.split(";").toList) map (_.trim))
   
   /**
    * Retrieves the manifest version
@@ -338,7 +338,7 @@ object BundleInfo {
    * @throws InvalidBundleException if any of the import
    * declarations is invalid
    */
-  private def parseImportedPackages(manifest: Manifest): Array[ImportedPackage] = {
+  private def parseImportedPackages(manifest: Manifest): List[ImportedPackage] = {
     //a set of already imported packages
     var allNames = Set[String]()
     
@@ -413,7 +413,7 @@ object BundleInfo {
    * @throws InvalidBundleException if any of the export
    * declarations is invalid
    */
-  private def parseExportedPackages(manifest: Manifest): Array[ExportedPackage] = {
+  private def parseExportedPackages(manifest: Manifest): List[ExportedPackage] = {
     /**
      * Parses an export package declaration
      * @param decl the header to parse
@@ -477,7 +477,7 @@ object BundleInfo {
    * @param manifest the bundle manifest
    * @return the required bundles
    */
-  private def parseRequiredBundles(manifest: Manifest): Array[RequiredBundle] = {
+  private def parseRequiredBundles(manifest: Manifest): List[RequiredBundle] = {
     /**
      * Parses a require-bundle declaration
      * @param decl the header to parse

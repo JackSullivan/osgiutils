@@ -27,9 +27,9 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
   
   private def makeBundle(symbolicName: String, version: Version = Version.Default,
     fragmentHost: Option[FragmentHost] = None,
-    exportedPackages: Array[ExportedPackage] = Array.empty,
-    importedPackages: Array[ImportedPackage] = Array.empty,
-    requiredBundles: Array[RequiredBundle] = Array.empty) =
+    exportedPackages: List[ExportedPackage] = List.empty,
+    importedPackages: List[ImportedPackage] = List.empty,
+    requiredBundles: List[RequiredBundle] = List.empty) =
     BundleInfo(null, 2, symbolicName, None, None, version, fragmentHost,
       exportedPackages, importedPackages, requiredBundles)
   
@@ -142,7 +142,7 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
     }
     
     "not find bundles by exported package" in {
-      val b3 = makeBundle("C", version = Version(1), exportedPackages = Array(
+      val b3 = makeBundle("C", version = Version(1), exportedPackages = List(
           ExportedPackage("p"), ExportedPackage("q", Version(1)),
           ExportedPackage("r", mandatoryAttributes = Set("attr1"), matchingAttributes = Map("attr1" -> "value1")),
           ExportedPackage("s", matchingAttributes = Map("attr1" -> "value1", "attr2" -> "value2"))))
@@ -164,11 +164,11 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
     }
     
     "find bundles by exported package" in {
-      val b3 = makeBundle("C", version = Version(3), exportedPackages = Array(
+      val b3 = makeBundle("C", version = Version(3), exportedPackages = List(
           ExportedPackage("p"), ExportedPackage("q", Version(1)), ExportedPackage("r"),
           ExportedPackage("s", mandatoryAttributes = Set("attr1"), matchingAttributes = Map("attr1" -> "value1")),
           ExportedPackage("t", matchingAttributes = Map("attr1" -> "value1", "attr2" -> "value2"))))
-      val b4 = makeBundle("D", version = Version(4), exportedPackages = Array(
+      val b4 = makeBundle("D", version = Version(4), exportedPackages = List(
           ExportedPackage("q", Version(2)), ExportedPackage("r"),
           ExportedPackage("s"),
           ExportedPackage("t", matchingAttributes = Map("attr3" -> "value3", "attr4" -> "value4"))))
@@ -197,9 +197,9 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
     
     "not calculate required bundles" in {
       val br2 = RequiredBundle("A")
-      val b2 = makeBundle("B", requiredBundles = Array(br2))
+      val b2 = makeBundle("B", requiredBundles = List(br2))
       val br3 = ImportedPackage("p")
-      val b3 = makeBundle("C", importedPackages = Array(br3))
+      val b3 = makeBundle("C", importedPackages = List(br3))
       val br6 = FragmentHost("A")
       val b6 = makeBundle("F", fragmentHost = Some(br6))
       
@@ -211,11 +211,11 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
     }
     
     "calculate required bundles" in {
-      val b1 = makeBundle("A", exportedPackages = Array(ExportedPackage("p")))
-      val b2 = makeBundle("B", requiredBundles = Array(RequiredBundle("A")))
-      val b3 = makeBundle("C", importedPackages = Array(ImportedPackage("p")))
-      val b4 = makeBundle("D", requiredBundles = Array(RequiredBundle("A", true)))
-      val b5 = makeBundle("E", importedPackages = Array(ImportedPackage("p", true)))
+      val b1 = makeBundle("A", exportedPackages = List(ExportedPackage("p")))
+      val b2 = makeBundle("B", requiredBundles = List(RequiredBundle("A")))
+      val b3 = makeBundle("C", importedPackages = List(ImportedPackage("p")))
+      val b4 = makeBundle("D", requiredBundles = List(RequiredBundle("A", true)))
+      val b5 = makeBundle("E", importedPackages = List(ImportedPackage("p", true)))
       val b6 = makeBundle("F", fragmentHost = Some(FragmentHost("A")))
       
       val ub1: ResolverResult = Unresolved(b1)
@@ -234,9 +234,9 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
     
     "not produce error on missing optional dependencies" in {
       val br2 = RequiredBundle("A", true)
-      val b2 = makeBundle("B", requiredBundles = Array(br2))
+      val b2 = makeBundle("B", requiredBundles = List(br2))
       val br3 = ImportedPackage("p", true)
-      val b3 = makeBundle("C", importedPackages = Array(br3))
+      val b3 = makeBundle("C", importedPackages = List(br3))
       
       val reg = new BundleRegistry()
       
@@ -248,9 +248,9 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
     
     "calculate transitive dependencies" in {
       val b1 = makeBundle("A")
-      val b2 = makeBundle("B", requiredBundles = Array(RequiredBundle("A")))
-      val b3 = makeBundle("C", requiredBundles = Array(RequiredBundle("B")))
-      val b4 = makeBundle("D", requiredBundles = Array(RequiredBundle("B"), RequiredBundle("C")))
+      val b2 = makeBundle("B", requiredBundles = List(RequiredBundle("A")))
+      val b3 = makeBundle("C", requiredBundles = List(RequiredBundle("B")))
+      val b4 = makeBundle("D", requiredBundles = List(RequiredBundle("B"), RequiredBundle("C")))
       
       val reg = new BundleRegistry()
       reg.add(b1)
@@ -272,9 +272,9 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
     }
     
     "throw exception on dependency cycle" in {
-      val b1 = makeBundle("A", requiredBundles = Array(RequiredBundle("C")))
-      val b2 = makeBundle("B", requiredBundles = Array(RequiredBundle("A")))
-      val b3 = makeBundle("C", requiredBundles = Array(RequiredBundle("B")))
+      val b1 = makeBundle("A", requiredBundles = List(RequiredBundle("C")))
+      val b2 = makeBundle("B", requiredBundles = List(RequiredBundle("A")))
+      val b3 = makeBundle("C", requiredBundles = List(RequiredBundle("B")))
       
       val reg = new BundleRegistry()
       reg.add(b1)
@@ -291,7 +291,7 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
     
     "resolve bundles" in {
       val b1 = makeBundle("A")
-      val b2 = makeBundle("B", requiredBundles = Array(RequiredBundle("A")))
+      val b2 = makeBundle("B", requiredBundles = List(RequiredBundle("A")))
       
       val reg = new BundleRegistry()
       
@@ -323,7 +323,7 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
     }
     
     "not resolve bundles" in {
-      val b2 = makeBundle("B", requiredBundles = Array(RequiredBundle("A")))
+      val b2 = makeBundle("B", requiredBundles = List(RequiredBundle("A")))
       
       val reg = new BundleRegistry()
       
@@ -337,7 +337,7 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
     
     "be able to recover from resolver error" in {
       val b1 = makeBundle("A")
-      val b2 = makeBundle("B", requiredBundles = Array(RequiredBundle("A")))
+      val b2 = makeBundle("B", requiredBundles = List(RequiredBundle("A")))
       
       val reg = new BundleRegistry()
       reg.add(b2)
@@ -350,9 +350,9 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
     }
     
     "handle priorities correctly" in {
-      val b1 = makeBundle("A", version = Version(1), exportedPackages = Array(ExportedPackage("p")))
-      val b2 = makeBundle("A", version = Version(2), exportedPackages = Array(ExportedPackage("p")))
-      val b3 = makeBundle("A", version = Version(2), exportedPackages = Array(ExportedPackage("p")))
+      val b1 = makeBundle("A", version = Version(1), exportedPackages = List(ExportedPackage("p")))
+      val b2 = makeBundle("A", version = Version(2), exportedPackages = List(ExportedPackage("p")))
+      val b3 = makeBundle("B", version = Version(2), exportedPackages = List(ExportedPackage("p")))
       
       val reg = new BundleRegistry()
       reg.add(b1)
@@ -381,8 +381,8 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
     }
     
     "handle internal dependencies correctly" in {
-      val b1 = makeBundle("A", version = Version(1), exportedPackages = Array(ExportedPackage("p")),
-        importedPackages = Array(ImportedPackage("p")))
+      val b1 = makeBundle("A", version = Version(1), exportedPackages = List(ExportedPackage("p")),
+        importedPackages = List(ImportedPackage("p")))
       
       val reg = new BundleRegistry()
       reg.add(b1)

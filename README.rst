@@ -54,6 +54,7 @@ The following example shows how to use the bundle parser in Scala::
 
 The parser can also be used from Java::
 
+  import static scala.collection.JavaConversions.asList;
   import de.undercouch.osgiutils.BundleInfo;
   import de.undercouch.osgiutils.ExportedPackage;
 
@@ -61,7 +62,7 @@ The parser can also be used from Java::
   BundleInfo bi = BundleInfo.fromJar(u);
   System.out.println(bi.getSymbolicName());
   System.out.println(bi.getVersion());
-  for (ExportedPackage ep : bi.getExportedPackages()) {
+  for (ExportedPackage ep : asList(bi.getExportedPackages())) {
       System.out.println(ep.getName());
   }
   if (bi.getName().isDefined()) {
