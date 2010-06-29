@@ -27,7 +27,8 @@ class OSGiUtilitiesProject(info: ProjectInfo) extends DefaultProject(info) with 
   //configure OSGi bundle
   override def bndBundleName = "OSGi Utilities"
   override def bndBundleVendor = Some("Michel Kraemer")
-  override def bndExportPackage = Set("de.undercouch.osgiutils;version=" + projectVersion.value)
+  override def bndExportPackage = Set("de.undercouch.osgiutils;version=" + projectVersion.value,
+    "de.undercouch.osgiutils.registry;version=" + projectVersion.value)
   override def bndImportPackage = Set()
   override def bndPrivatePackage = Set()
   override def bndIncludeResource = Set()
