@@ -24,15 +24,10 @@ class BundleRegistry {
   import BundleRegistry._
   
   /**
-   * A MultiMap which keeps the order of inserted elements. This is necessary since
-   * there is a prioritization of registered bundles: bundles with a lower ID (i.e.
-   * which have been added first) should be prefered during resolving.
+   * A shortcut for MultiMaps
    * @author Michel Kraemer
    */
-  private class LinkedMultiMap[A, B] extends mutable.LinkedHashMap[A, mutable.Set[B]]
-    with mutable.MultiMap[A, B] {
-    override protected def makeSet: mutable.Set[B] = new mutable.LinkedHashSet[B]
-  }
+  private class MultiMap[A, B] extends mutable.HashMap[A, mutable.Set[B]] with mutable.MultiMap[A, B]
   
   /**
    * An item in the index of exported packages
@@ -41,26 +36,47 @@ class BundleRegistry {
   private case class ExportedPackageItem(pkg: ExportedPackage, bundle: BundleInfo)
   
   /**
-   * The registered bundles
+   * The registered bundles, their ID and the current state (resolved or not)
    */
-  private var bundles = mutable.LinkedHashMap[BundleInfo, ResolverResult]()
+  private var bundles = Map[BundleInfo, Tuple2[Int, ResolverResult]]()
   
   /**
    * The index of bundles. Maps symbolic names to bundles.
    */
-  private val symbolicNameIndex = new LinkedMultiMap[String, BundleInfo]()
+  private val symbolicNameIndex = new MultiMap[String, BundleInfo]()
   
   /**
    * The index of exported packages. Maps package names to
    * exported packages and respective bundles
    */
-  private val exportedPackageIndex = new LinkedMultiMap[String, ExportedPackageItem]()
+  private val exportedPackageIndex = new MultiMap[String, ExportedPackageItem]()
   
   /**
    * The index of bundle fragments. Maps symbolic names of
    * host bundles to fragments
    */
-  private val fragmentIndex = new LinkedMultiMap[String, BundleInfo]()
+  private val fragmentIndex = new MultiMap[String, BundleInfo]()
+  
+  /**
+   * Returns the current state (resolved or unresolved) of the
+   * given bundle from the registry
+   * @param bundle the bundle
+   * @return the current state of the bundle or None if there
+   * is no such bundle in the registry
+   */
+  private def getResolverResult(bundle: BundleInfo) =
+    bundles.get(bundle) map { _._2 }
+  
+  /**
+   * Returns the ID of the given bundle. IDs are assigned
+   * consecutively to bundles in the order they are added
+   * to the registry.
+   * @param bundle the bundle
+   * @return the bundle's ID or None if there is no such
+   * bundle in the registry
+   */
+  def getId(bundle: BundleInfo) =
+    bundles.get(bundle) map { _._1 }
   
   /**
    * Adds a bundle to the registry
@@ -73,7 +89,7 @@ class BundleRegistry {
       throw new IllegalStateException("Bundle has already been added to the registry")
     
     //add bundle to registry
-    bundles += (bundle -> Unresolved(bundle))
+    bundles += (bundle -> (bundles.size, Unresolved(bundle)))
     
     //add bundle to index
     symbolicNameIndex.addBinding(bundle.symbolicName, bundle)
@@ -100,7 +116,7 @@ class BundleRegistry {
    * @return true if the bundle is known by the registry and
    * if it is resolved, false otherwise
    */
-  def isResolved(bundle: BundleInfo): Boolean = bundles.get(bundle) match {
+  def isResolved(bundle: BundleInfo): Boolean = getResolverResult(bundle) match {
     case Some(Resolved(_)) => true
     case _ => false
   }
@@ -112,7 +128,7 @@ class BundleRegistry {
    * @return the errors occured during the resolving process. This
    * set is empty if the bundle was resolved successfully.
    */
-  def resolveBundle(bundle: BundleInfo): Set[ResolverError] = bundles.get(bundle) match {
+  def resolveBundle(bundle: BundleInfo): Set[ResolverError] = getResolverResult(bundle) match {
     case Some(r: Resolved) => Set.empty
     case _ => resolveBundleInternal(bundle)
   }
@@ -127,7 +143,10 @@ class BundleRegistry {
     val r = if (errors.isEmpty) Resolved(bundle) else Unresolved(bundle)
     
     //update registry
-    if (bundles contains bundle) bundles(bundle) = r
+    bundles.get(bundle) match {
+      case Some(current) => bundles += (bundle -> (current._1, r))
+      case _ => //do not add new bundles here 
+    }
     
     errors
   }
@@ -189,7 +208,7 @@ class BundleRegistry {
     //if includeOptional is false or if they are unknown to the registry
     val a = bundle.requiredBundles filter { includeOptional || !_.optional } flatMap { rb =>
       findBundle(rb) match {
-        case Some(b) => bundles.get(b)
+        case Some(b) => getResolverResult(b)
         case None if rb.optional => None
         case None => Some(MissingRequiredBundle(bundle, rb))
       }
@@ -206,10 +225,10 @@ class BundleRegistry {
         case head :: tail if head == bundle =>
           //ignore internal dependency and
           //use the external one
-          bundles.get(tail(0))
+          getResolverResult(tail(0))
         case head :: Nil =>
           //use concrete dependency
-          bundles.get(head)
+          getResolverResult(head)
         case List() if ip.optional =>
           //ignore missing dependency if the
           //import-package declaration is optional
@@ -223,7 +242,7 @@ class BundleRegistry {
     //add fragment host as required bundle if there is any
     val c = bundle.fragmentHost map { fh =>
       findBundle(fh) match {
-        case Some(b) => bundles.get(b).get
+        case Some(b) => getResolverResult(b).get
         case None => MissingFragmentHost(bundle, fh)
       }
     }
@@ -329,7 +348,31 @@ class BundleRegistry {
   private def prioritize(bundles: Iterable[BundleInfo]): Array[BundleInfo] = {
     val arr = bundles.toArray
     Sorting.stableSort(arr, { (a: BundleInfo, b: BundleInfo) =>
-      (isResolved(a) && !isResolved(b)) || (a.version > b.version)
+      val ar = isResolved(a)
+      val br = isResolved(b)
+      if (ar && !br) {
+        true
+      } else if (ar == br) {
+        if (a.version > b.version) {
+          true
+        } else if (a.version == b.version) {
+          val aid = getId(a)
+          val bid = getId(b)
+          if (aid.isDefined && !bid.isDefined) {
+            true
+          } else if (!aid.isDefined && bid.isDefined) {
+            false
+          } else if (!aid.isDefined && !bid.isDefined) {
+            false
+          } else {
+            aid.get < bid.get
+          }
+        } else {
+          false
+        }
+      } else {
+        false
+      }
     })
     arr
   }
