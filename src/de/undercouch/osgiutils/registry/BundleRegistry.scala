@@ -252,8 +252,8 @@ class BundleRegistry {
           //ignore internal dependency and
           //use the external one
           getResolverResult(tail(0))
-        case head :: Nil =>
-          //use concrete dependency
+        case head :: tail =>
+          //use dependency with highest priority
           getResolverResult(head)
         case List() if ip.optional =>
           //ignore missing dependency if the
