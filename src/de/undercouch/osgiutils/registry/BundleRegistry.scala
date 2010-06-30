@@ -372,7 +372,8 @@ class BundleRegistry {
    * the highest priority is at position 0.
    */
   private def prioritize(bundles: Iterable[BundleInfo]): List[BundleInfo] = {
-    bundles.toList sortWith { (a: BundleInfo, b: BundleInfo) =>
+    val arr = bundles.toArray
+    Sorting.quickSort(arr)(Ordering fromLessThan { (a: BundleInfo, b: BundleInfo) =>
       val ar = isResolved(a)
       val br = isResolved(b)
       if (ar && !br) {
@@ -398,7 +399,8 @@ class BundleRegistry {
       } else {
         false
       }
-    }
+    })
+    arr.toList
   }
 }
 
