@@ -216,7 +216,7 @@ class BundleRegistry {
     
     //calculate list of required bundles by imported packages
     val b = bundle.importedPackages filter { includeOptional || !_.optional } flatMap { ip =>
-      val r = findBundles(ip).toList
+      val r = findBundles(ip)
       r match {
         case head :: Nil if head == bundle =>
           //ignore internal dependency, but
@@ -310,7 +310,7 @@ class BundleRegistry {
     if (result.isEmpty) None else Some(result(0))
   }
   
-  private def findBundles(i: ImportedPackage): Array[BundleInfo] = {
+  private def findBundles(i: ImportedPackage): List[BundleInfo] = {
     val result = exportedPackageIndex.get(i.name) map { candidates =>
       candidates filter { c =>
         //check if the version of the exported package matches the required one
@@ -345,9 +345,8 @@ class BundleRegistry {
    * @return the bundles sorted by their priority. The bundle with
    * the highest priority is at position 0.
    */
-  private def prioritize(bundles: Iterable[BundleInfo]): Array[BundleInfo] = {
-    val arr = bundles.toArray
-    Sorting.stableSort(arr, { (a: BundleInfo, b: BundleInfo) =>
+  private def prioritize(bundles: Iterable[BundleInfo]): List[BundleInfo] = {
+    bundles.toList sortWith { (a: BundleInfo, b: BundleInfo) =>
       val ar = isResolved(a)
       val br = isResolved(b)
       if (ar && !br) {
@@ -373,8 +372,7 @@ class BundleRegistry {
       } else {
         false
       }
-    })
-    arr
+    }
   }
 }
 
