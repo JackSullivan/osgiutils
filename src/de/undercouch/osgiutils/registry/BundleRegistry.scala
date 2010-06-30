@@ -104,7 +104,7 @@ class BundleRegistry {
   
   /**
    * Trys to resolve all bundles not yet resolved
-   * @return the errors occured during the resolving process. This
+   * @return the errors occurred during the resolving process. This
    * set is empty if all bundles were resolved successfully.
    */
   def resolveBundles(): Set[ResolverError] =
