@@ -24,6 +24,12 @@ class BundleRegistry {
   import BundleRegistry._
   
   /**
+   * A cache used during the resolving process to cache transitive
+   * dependencies for a given bundle
+   */
+  private type ResolverCache = mutable.HashMap[BundleInfo, Set[ResolverResult]]
+  
+  /**
    * A shortcut for MultiMaps
    * @author Michel Kraemer
    */
@@ -107,8 +113,10 @@ class BundleRegistry {
    * @return the errors occurred during the resolving process. This
    * set is empty if all bundles were resolved successfully.
    */
-  def resolveBundles(): Set[ResolverError] =
-    bundles.foldLeft(Set.empty[ResolverError]) { (r, b) => r ++ resolveBundle(b._1) }
+  def resolveBundles(): Set[ResolverError] = {
+    implicit val cache = new ResolverCache()
+    bundles.foldLeft(Set.empty[ResolverError]) { (r, b) => r ++ resolveBundleCached(b._1) }
+  }
   
   /**
    * Checks if a bundle is resolved.
@@ -128,14 +136,19 @@ class BundleRegistry {
    * @return the errors occured during the resolving process. This
    * set is empty if the bundle was resolved successfully.
    */
-  def resolveBundle(bundle: BundleInfo): Set[ResolverError] = getResolverResult(bundle) match {
-    case Some(r: Resolved) => Set.empty
-    case _ => resolveBundleInternal(bundle)
+  def resolveBundle(bundle: BundleInfo): Set[ResolverError] =
+    resolveBundleCached(bundle)(new ResolverCache())
+    
+  private def resolveBundleCached(bundle: BundleInfo)(implicit cache: ResolverCache): Set[ResolverError] = {
+    getResolverResult(bundle) match {
+      case Some(r: Resolved) => Set.empty
+      case _ => resolveBundleInternal(bundle)
+    }
   }
   
-  private def resolveBundleInternal(bundle: BundleInfo): Set[ResolverError] = {
+  private def resolveBundleInternal(bundle: BundleInfo)(implicit cache: ResolverCache): Set[ResolverError] = {
     //find resolver errors
-    val errors = calculateRequiredBundles(bundle) collect {
+    val errors = calculateRequiredBundlesInternal(bundle, false, List.empty) collect {
       case d: ResolverError => d: ResolverError
     }
     
@@ -164,32 +177,45 @@ class BundleRegistry {
    * @throws DependencyCycleException if the transitive dependencies contain a cycle
    */
   def calculateRequiredBundles(bundle: BundleInfo, includeOptional: Boolean = false): Set[ResolverResult] =
-    calculateRequiredBundlesInternal(bundle, includeOptional, List.empty)    
+    calculateRequiredBundlesInternal(bundle, includeOptional, List.empty)(new ResolverCache())    
   
-  private def calculateRequiredBundlesInternal(bundle: BundleInfo, includeOptional: Boolean = false,
-    path: List[BundleInfo]): Set[ResolverResult] = {
-    //calculate direct dependencies for the current bundle
-    val deps = calculateRequiredBundlesShallow(bundle, includeOptional)
-    
-    //calculate transitive dependencies
-    val transitive = deps flatMap {
-      case _: ResolverError =>
-        //don't calculate dependencies for errors
-        Nil
+  private def calculateRequiredBundlesInternal(bundle: BundleInfo, includeOptional: Boolean,
+    path: List[BundleInfo])(implicit cache: ResolverCache): Set[ResolverResult] = {
+    //check cache first
+    cache.get(bundle) match {
+      case Some(deps) =>
+        //return cached transitive dependencies
+        deps
       
-      case d if path.contains(d.bundle) =>
-        //the current bundle depends on a bundle already in the current path
-        //that means that a dependency cycle has been detected
-        val cycle = (path drop (path indexOf d.bundle)) ++ List(bundle, d.bundle)
-        val symbolicNames = cycle map { _.symbolicName } reduceLeft { _ + ", " + _ }
-        throw new DependencyCycleException("Dependency cycle detected: " + symbolicNames, cycle.toArray)
+      case None =>
+        //calculate direct dependencies for the current bundle
+        val deps = calculateRequiredBundlesShallow(bundle, includeOptional)
         
-      case d =>
         //calculate transitive dependencies
-        calculateRequiredBundlesInternal(d.bundle, includeOptional, path ++ List(bundle))
+        val transitive = deps flatMap {
+          case _: ResolverError =>
+            //don't calculate dependencies for errors
+            Nil
+          
+          case d if path.contains(d.bundle) =>
+            //the current bundle depends on a bundle already in the current path
+            //that means that a dependency cycle has been detected
+            val cycle = (path drop (path indexOf d.bundle)) ++ List(bundle, d.bundle)
+            val symbolicNames = cycle map { _.symbolicName } reduceLeft { _ + ", " + _ }
+            throw new DependencyCycleException("Dependency cycle detected: " + symbolicNames, cycle.toArray)
+          
+          case d =>
+            //calculate transitive dependencies
+            calculateRequiredBundlesInternal(d.bundle, includeOptional, path ++ List(bundle))
+        }
+        
+        val r = deps ++ transitive
+        
+        //cache transitive dependencies
+        cache += (bundle -> r)
+        
+        r
     }
-    
-    deps ++ transitive
   }
   
   /**
