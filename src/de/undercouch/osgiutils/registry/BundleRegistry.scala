@@ -433,17 +433,23 @@ object BundleRegistry {
    * This resolver error occurs when a required bundle could not be found
    */
   case class MissingRequiredBundle(b: BundleInfo,
-    @BeanProperty val requiredBundle: RequiredBundle) extends ResolverResult(b) with ResolverError
+    @BeanProperty val requiredBundle: RequiredBundle) extends ResolverResult(b) with ResolverError {
+    override def toString(): String = "Missing required bundle " + requiredBundle + " in " + b
+  }
   
   /**
    * This resolver error occurs when an imported package could not be found
    */
   case class MissingImportedPackage(b: BundleInfo,
-    @BeanProperty val importedPackage: ImportedPackage) extends ResolverResult(b) with ResolverError
+    @BeanProperty val importedPackage: ImportedPackage) extends ResolverResult(b) with ResolverError {
+    override def toString(): String = "Missing imported package " + importedPackage + " in " + b
+  }
   
   /**
    * This resolver error occurs when the host of a fragment could not be found
    */
   case class MissingFragmentHost(b: BundleInfo,
-    @BeanProperty val fragmentHost: FragmentHost) extends ResolverResult(b) with ResolverError
+    @BeanProperty val fragmentHost: FragmentHost) extends ResolverResult(b) with ResolverError {
+    override def toString(): String = "Missing fragment host " + fragmentHost + " in " + b
+  }
 }

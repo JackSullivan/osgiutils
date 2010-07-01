@@ -106,5 +106,12 @@ class VersionSpec extends WordSpec with ShouldMatchers {
       
       Version(1) < Version.Infinite should be (true)
     }
+    
+    "have the right string representation" in {
+      Version(1).toString should be ("1")
+      Version(1, 2).toString should be ("1.2")
+      Version(1, 2, 3).toString should be ("1.2.3")
+      Version(1, 2, 3, "q").toString should be ("1.2.3.q")
+    }
   }
 }

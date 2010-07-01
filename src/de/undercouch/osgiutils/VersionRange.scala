@@ -40,6 +40,16 @@ case class VersionRange(@BeanProperty floor: Version, @BeanProperty ceiling: Ver
     else
       v > floor && v < ceiling
   }
+  
+  override def toString(): String = {
+    if (ceiling == Version.Infinite) {
+      floor.toString
+    } else {
+      (if (floorInclusive) "[" else "(") +
+        floor + ", " + ceiling +
+        (if (ceilingInclusive) "]" else ")")
+    }
+  }
 }
 
 /**

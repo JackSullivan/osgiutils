@@ -22,4 +22,12 @@ case class ImportedPackage(@BeanProperty name: String,
   @BeanProperty version: VersionRange = VersionRange.Default,
   @BeanProperty bundleSymbolicName: Option[String] = None,
   @BeanProperty bundleVersion: VersionRange = VersionRange.Default,
-  @BeanProperty matchingAttributes: Map[String, String] = Map.empty)
+  @BeanProperty matchingAttributes: Map[String, String] = Map.empty) {
+  override def toString(): String = name +
+    (if (optional) ";resolution:=optional" else "") +
+    (if (version != VersionRange.Default) ";version=\"" + version + "\"" else "") +
+    ((for (n <- bundleSymbolicName) yield ";bundle-symbolic-name=" + n) getOrElse "") +
+    (if (bundleVersion != VersionRange.Default) ";bundle-version=\"" + bundleVersion + "\"" else "") +
+    (matchingAttributes.foldLeft("")((s: String, e: (String, String)) =>
+      s + ";" + e._1 + "=\"" + e._2 + "\""))
+}

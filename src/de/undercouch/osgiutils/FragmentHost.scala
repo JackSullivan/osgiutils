@@ -19,7 +19,15 @@ import scala.reflect.BeanProperty
  */
 case class FragmentHost(@BeanProperty symbolicName: String,
   @BeanProperty version: VersionRange = VersionRange.Default,
-  @BeanProperty extension: FragmentHost.Extension.Extension = FragmentHost.Extension.None)
+  @BeanProperty extension: FragmentHost.Extension.Extension = FragmentHost.Extension.None) {
+  override def toString(): String = symbolicName +
+    (if (version != VersionRange.Default) ";version=\"" + version + "\"" else "") +
+    (extension match {
+      case FragmentHost.Extension.None => ""
+      case FragmentHost.Extension.Framework => ";extension:=framework"
+      case FragmentHost.Extension.BootClassPath => ";extension:=bootclasspath"
+    })
+}
 
 /**
  * Static definitions for the information about fragment hosts

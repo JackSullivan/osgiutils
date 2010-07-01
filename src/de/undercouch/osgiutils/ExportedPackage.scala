@@ -23,4 +23,13 @@ case class ExportedPackage(@BeanProperty name: String,
   @BeanProperty mandatoryAttributes: Set[String] = Set.empty,
   @BeanProperty includedClasses: Set[String] = Set.empty,
   @BeanProperty excludedClasses: Set[String] = Set.empty,
-  @BeanProperty matchingAttributes: Map[String, String] = Map.empty)
+  @BeanProperty matchingAttributes: Map[String, String] = Map.empty) {
+  override def toString(): String = name +
+    (if (version != Version.Default) ";version=\"" + version + "\"" else "") +
+    (if (!uses.isEmpty) ";uses:=\"" + uses.mkString(",") + "\"" else "") +
+    (if (!mandatoryAttributes.isEmpty) ";mandatory:=" + mandatoryAttributes.mkString(",") else "") +
+    (if (!includedClasses.isEmpty) ";include:=" + includedClasses.mkString(",") else "") +
+    (if (!excludedClasses.isEmpty) ";exclude:=" + excludedClasses.mkString(",") else "") +
+    (matchingAttributes.foldLeft("")((s: String, e: (String, String)) =>
+      s + ";" + e._1 + "=\"" + e._2 + "\""))
+}

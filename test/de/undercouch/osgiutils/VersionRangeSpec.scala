@@ -83,5 +83,13 @@ class VersionRangeSpec extends WordSpec with ShouldMatchers {
       vr4 contains Version(2, 5) should be (false)
       vr4 contains Version(2) should be (false)
     }
+    
+    "have the right string representation" in {
+      VersionRange(Version(1, 2, 3)).toString should be ("1.2.3")
+      VersionRange(Version(1, 2, 3), Version(2), true, false).toString should be ("[1.2.3, 2)")
+      VersionRange(Version(1, 2, 3), Version(2), false, false).toString should be ("(1.2.3, 2)")
+      VersionRange(Version(1, 2, 3), Version(2), false, true).toString should be ("(1.2.3, 2]")
+      VersionRange(Version(1, 2, 3), Version(2), true, true).toString should be ("[1.2.3, 2]")
+    }
   }
 }

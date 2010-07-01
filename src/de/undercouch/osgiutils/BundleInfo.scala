@@ -103,6 +103,16 @@ case class BundleInfo(
    */
   def getSimpleManifestEntry(name: String): Option[String] =
     BundleInfo.getSimpleManifestEntry(manifest, name)
+  
+  override def toString(): String = "Bundle(" +
+    symbolicName + " (" + version + ")" +
+    ((for (n <- name) yield ", Name = \"" + n + "\"") getOrElse "") +
+    ((for (d <- description) yield ", Description = \"" + d + "\"") getOrElse "") +
+    ((for (h <- fragmentHost) yield ", Fragment Host = [" + h + "]") getOrElse "") +
+    (if (!exportedPackages.isEmpty) ", Exported Packages = [" + exportedPackages.mkString(", ") + "]" else "") +
+    (if (!importedPackages.isEmpty) ", Imported Packages = [" + importedPackages.mkString(", ") + "]" else "") +
+    (if (!requiredBundles.isEmpty) ", Required Bundles = [" + requiredBundles.mkString(", ") + "]" else "") +
+    ")"
 }
 
 /**

@@ -45,6 +45,15 @@ case class Version(@BeanProperty major: Int = 0, @BeanProperty minor: Int = 0,
       }
     }
   }
+  
+  override def toString(): String = {
+    val sb = new StringBuffer()
+    sb.append(major)
+    if (minor != 0 || micro != 0 || !qualifier.isEmpty) sb.append("." + minor)
+    if (micro != 0 || !qualifier.isEmpty) sb.append("." + micro)
+    if (!qualifier.isEmpty) sb.append("." + qualifier)
+    sb.toString
+  }
 }
 
 /**

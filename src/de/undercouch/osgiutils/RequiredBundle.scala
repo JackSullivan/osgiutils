@@ -20,4 +20,9 @@ import scala.reflect.{BeanProperty, BooleanBeanProperty}
 case class RequiredBundle(@BeanProperty symbolicName: String,
   @BooleanBeanProperty optional: Boolean = false,
   @BeanProperty version: VersionRange = VersionRange.Default,
-  @BooleanBeanProperty reexport: Boolean = false)
+  @BooleanBeanProperty reexport: Boolean = false) {
+  override def toString(): String = symbolicName +
+    (if (version != VersionRange.Default) ";version=\"" + version + "\"" else "") +
+    (if (optional) ";resolution:=optional" else "") +
+    (if (reexport) ";visibility:=reexport" else "")
+}
