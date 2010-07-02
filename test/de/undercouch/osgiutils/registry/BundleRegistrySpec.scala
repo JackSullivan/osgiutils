@@ -34,6 +34,36 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
       exportedPackages, importedPackages, requiredBundles)
   
   "BundleRegistry" should {
+    "have a system bundle" in {
+      val b1 = makeBundle("A", requiredBundles = List(RequiredBundle(OSGiConstants.SystemBundleSymbolicName)))
+      
+      val reg = new BundleRegistry()
+      reg.add(b1)
+      
+      val r = reg.calculateRequiredBundles(b1)
+      r should have size (1)
+      r.iterator.next.bundle.symbolicName should be (OSGiConstants.SystemBundleSymbolicName)
+    }
+    
+    "have a system bundle that exports system packages" in {
+      val oldpackages = System.getProperty(OSGiConstants.FrameworkSystemPackages)
+      try {
+        System.setProperty(OSGiConstants.FrameworkSystemPackages, "javax.mail,javax.ssl")
+        
+        val b1 = makeBundle("A", importedPackages = List(ImportedPackage("javax.ssl")))
+      
+        val reg = new BundleRegistry()
+        reg.add(b1)
+        
+        val r = reg.calculateRequiredBundles(b1)
+        r should have size (1)
+        r.iterator.next.bundle.symbolicName should be (OSGiConstants.SystemBundleSymbolicName)
+      } finally {
+        if (oldpackages != null)
+          System.setProperty(OSGiConstants.FrameworkSystemPackages, oldpackages)
+      }
+    }
+    
     "not accept a bundle twice" in {
       val b1 = makeBundle("A");
       

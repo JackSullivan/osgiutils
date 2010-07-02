@@ -11,6 +11,7 @@
 
 package de.undercouch.osgiutils.registry
 
+import java.util.jar.Manifest
 import scala.collection._
 import scala.reflect.BeanProperty
 import scala.util.Sorting
@@ -62,6 +63,32 @@ class BundleRegistry {
    * host bundles to fragments
    */
   private val fragmentIndex = new MultiMap[String, BundleInfo]()
+  
+  //add system.bundle. It must be added before any other
+  //bundle since the system bundle has always ID 0
+  addSystemBundle()
+  
+  private def addSystemBundle() {
+    //get system packages
+    var systemPackages = System.getProperty(OSGiConstants.FrameworkSystemPackages)
+    if (systemPackages == null) systemPackages = ""
+    var systemPackagesExtra = System.getProperty(OSGiConstants.FrameworkSystemPackagesExtra)
+    if (systemPackagesExtra != null) {
+      if (systemPackages.isEmpty) {
+        systemPackages = systemPackagesExtra
+      } else {
+        systemPackages += "," + systemPackagesExtra
+      }
+    }
+    
+    //create manifest for system bundle
+    val m = new Manifest()
+    val attrs = m.getMainAttributes()
+    attrs.putValue(ManifestConstants.BundleSymbolicName, OSGiConstants.SystemBundleSymbolicName)
+    attrs.putValue(ManifestConstants.ExportPackage, systemPackages)
+    
+    add(BundleInfo.fromManifest(m))
+  }
   
   /**
    * Returns the current state (resolved or unresolved) of the
