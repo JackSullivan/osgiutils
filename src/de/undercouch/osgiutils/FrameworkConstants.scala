@@ -15,7 +15,7 @@ package de.undercouch.osgiutils
  * Global constants used throughout the OSGi Framework
  * @author Michel Kraemer
  */
-object OSGiConstants {
+object FrameworkConstants {
   val SystemBundleSymbolicName = "system.bundle"
   val FrameworkSystemPackages = "org.osgi.framework.system.packages"
   val FrameworkSystemPackagesExtra = "org.osgi.framework.system.packages.extra"

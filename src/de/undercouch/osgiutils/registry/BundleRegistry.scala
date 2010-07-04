@@ -23,6 +23,8 @@ import de.undercouch.osgiutils._
  */
 class BundleRegistry {
   import BundleRegistry._
+  import FrameworkConstants._
+  import ManifestConstants._
   
   /**
    * A cache used during the resolving process to cache transitive
@@ -70,9 +72,9 @@ class BundleRegistry {
   
   private def addSystemBundle() {
     //get system packages
-    var systemPackages = System.getProperty(OSGiConstants.FrameworkSystemPackages)
+    var systemPackages = System.getProperty(FrameworkSystemPackages)
     if (systemPackages == null) systemPackages = ""
-    var systemPackagesExtra = System.getProperty(OSGiConstants.FrameworkSystemPackagesExtra)
+    var systemPackagesExtra = System.getProperty(FrameworkSystemPackagesExtra)
     if (systemPackagesExtra != null) {
       if (systemPackages.isEmpty) {
         systemPackages = systemPackagesExtra
@@ -84,8 +86,8 @@ class BundleRegistry {
     //create manifest for system bundle
     val m = new Manifest()
     val attrs = m.getMainAttributes()
-    attrs.putValue(ManifestConstants.BundleSymbolicName, OSGiConstants.SystemBundleSymbolicName)
-    attrs.putValue(ManifestConstants.ExportPackage, systemPackages)
+    attrs.putValue(BundleSymbolicName, SystemBundleSymbolicName)
+    attrs.putValue(ExportPackage, systemPackages)
     
     add(BundleInfo.fromManifest(m))
   }

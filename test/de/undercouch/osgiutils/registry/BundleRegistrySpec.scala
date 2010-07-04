@@ -24,6 +24,7 @@ import de.undercouch.osgiutils._
 @RunWith(classOf[JUnitRunner])
 class BundleRegistrySpec extends WordSpec with ShouldMatchers {
   import BundleRegistry._
+  import FrameworkConstants._
   
   private def makeBundle(symbolicName: String, version: Version = Version.Default,
     fragmentHost: Option[FragmentHost] = None,
@@ -35,20 +36,20 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
   
   "BundleRegistry" should {
     "have a system bundle" in {
-      val b1 = makeBundle("A", requiredBundles = List(RequiredBundle(OSGiConstants.SystemBundleSymbolicName)))
+      val b1 = makeBundle("A", requiredBundles = List(RequiredBundle(SystemBundleSymbolicName)))
       
       val reg = new BundleRegistry()
       reg.add(b1)
       
       val r = reg.calculateRequiredBundles(b1)
       r should have size (1)
-      r.iterator.next.bundle.symbolicName should be (OSGiConstants.SystemBundleSymbolicName)
+      r.iterator.next.bundle.symbolicName should be (SystemBundleSymbolicName)
     }
     
     "have a system bundle that exports system packages" in {
-      val oldpackages = System.getProperty(OSGiConstants.FrameworkSystemPackages)
+      val oldpackages = System.getProperty(FrameworkSystemPackages)
       try {
-        System.setProperty(OSGiConstants.FrameworkSystemPackages, "javax.mail,javax.ssl")
+        System.setProperty(FrameworkSystemPackages, "javax.mail,javax.ssl")
         
         val b1 = makeBundle("A", importedPackages = List(ImportedPackage("javax.ssl")))
       
@@ -57,10 +58,10 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
         
         val r = reg.calculateRequiredBundles(b1)
         r should have size (1)
-        r.iterator.next.bundle.symbolicName should be (OSGiConstants.SystemBundleSymbolicName)
+        r.iterator.next.bundle.symbolicName should be (SystemBundleSymbolicName)
       } finally {
         if (oldpackages != null)
-          System.setProperty(OSGiConstants.FrameworkSystemPackages, oldpackages)
+          System.setProperty(FrameworkSystemPackages, oldpackages)
       }
     }
     
