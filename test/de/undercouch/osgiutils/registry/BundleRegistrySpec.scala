@@ -66,7 +66,7 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
     }
     
     "not accept a bundle twice" in {
-      val b1 = makeBundle("A");
+      val b1 = makeBundle("A")
       
       val reg = new BundleRegistry()
       reg.add(b1)
@@ -84,7 +84,7 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
     }
     
     "find a bundle" in {
-      val b1 = makeBundle("A");
+      val b1 = makeBundle("A")
       val b2 = makeBundle("B", Version(1, 2, 3))
       
       val reg = new BundleRegistry()
@@ -93,6 +93,17 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
       
       reg.findBundle("A", VersionRange.Default) should be (Some(b1))
       reg.findBundle("B", VersionRange(Version(1))) should be (Some(b2))
+    }
+    
+    "find multiple bundles" in {
+      val b1 = makeBundle("A", Version(1))
+      val b2 = makeBundle("A", Version(2))
+      
+      val reg = new BundleRegistry()
+      reg.add(b1)
+      reg.add(b2)
+      
+      reg.findBundles("A", VersionRange.Default) should be (List(b2, b1))
     }
     
     "not find a required bundle" in {
@@ -106,7 +117,7 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
     }
     
     "find a required bundle" in {
-      val b1 = makeBundle("A");
+      val b1 = makeBundle("A")
       val b2 = makeBundle("B", Version(1, 2, 3))
       
       val reg = new BundleRegistry()
@@ -115,6 +126,17 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
       
       reg.findBundle(RequiredBundle("A")) should be (Some(b1))
       reg.findBundle(RequiredBundle("B", version = VersionRange(Version(1)))) should be (Some(b2))
+    }
+    
+    "find multiple required bundles" in {
+      val b1 = makeBundle("A", Version(1))
+      val b2 = makeBundle("A", Version(2))
+      
+      val reg = new BundleRegistry()
+      reg.add(b1)
+      reg.add(b2)
+      
+      reg.findBundles(RequiredBundle("A")) should be (List(b2, b1))
     }
     
     "find no fragments" in {
@@ -131,7 +153,7 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
     }
     
     "find fragments" in {
-      val b1 = makeBundle("A");
+      val b1 = makeBundle("A")
       val b2 = makeBundle("B", Version(1, 2, 3))
       val f1 = makeBundle("F1", fragmentHost = Some(FragmentHost("A")))
       val f2 = makeBundle("F2", fragmentHost = Some(FragmentHost("B", VersionRange(Version(1)))))
@@ -161,7 +183,7 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
     }
     
     "find fragment hosts" in {
-      val b1 = makeBundle("A");
+      val b1 = makeBundle("A")
       val b2 = makeBundle("B", Version(1, 2, 3))
       
       val reg = new BundleRegistry()
@@ -170,6 +192,17 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
       
       reg.findBundle(FragmentHost("A")) should be (Some(b1))
       reg.findBundle(FragmentHost("B", version = VersionRange(Version(1)))) should be (Some(b2))
+    }
+    
+    "find multiple fragment hosts" in {
+      val b1 = makeBundle("A", Version(1))
+      val b2 = makeBundle("A", Version(2))
+      
+      val reg = new BundleRegistry()
+      reg.add(b1)
+      reg.add(b2)
+      
+      reg.findBundles(FragmentHost("A")) should be (List(b2, b1))
     }
     
     "not find bundles by exported package" in {
@@ -224,6 +257,17 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
       reg.findBundle(ImportedPackage("t", matchingAttributes = Map("attr3" -> "value3"))) should be (Some(b4))
       reg.findBundle(ImportedPackage("t", matchingAttributes = Map("attr4" -> "value4"))) should be (Some(b4))
       reg.findBundle(ImportedPackage("t", matchingAttributes = Map("attr3" -> "value3", "attr4" -> "value4"))) should be (Some(b4))
+    }
+    
+    "find multiple bundles by exported package" in {
+      val b1 = makeBundle("A", version = Version(1), exportedPackages = List(ExportedPackage("p")))
+      val b2 = makeBundle("A", version = Version(2), exportedPackages = List(ExportedPackage("p")))
+      
+      val reg = new BundleRegistry()
+      reg.add(b1)
+      reg.add(b2)
+      
+      reg.findBundles(ImportedPackage("p")) should be (List(b2, b1))
     }
     
     "not calculate required bundles" in {

@@ -306,23 +306,40 @@ class BundleRegistry {
   }
   
   /**
-   * Finds a unique bundle in the registry that matches the
-   * given constraints
+   * Convenience method to find a unique bundle in the registry that
+   * matches the given constraints. If the method finds multiple bundles
+   * matching the constraints, it returns the one that fits best.
    * @param symbolicName the symbolicName of the bundle to find
    * @param version the version range the returned bundle should match
    * @return the bundle that matches the constraints or None if
    * there is no such bundle in the registry
    */
   def findBundle(symbolicName: String, version: VersionRange): Option[BundleInfo] = {
-    symbolicNameIndex.get(symbolicName) flatMap { candidates =>
-      val result = candidates filter { version contains _.version }
-      if (result.isEmpty) None else Some(prioritize(result)(0))
+    val result = findBundles(symbolicName, version)
+    if (result.isEmpty) None else Some(result(0))
+  }
+  
+  /**
+   * Finds all bundles in the registry that match the given constraints.
+   * The returned list of bundles is sorted by their priority. That means
+   * the first bundle in the list is the one that matches the constraints best.
+   * @param symbolicName the symbolicName of the bundles to find
+   * @param version the version range the returned bundles should match
+   * @return the bundles that match the constraints or an empty list if
+   * there are no such bundles in the registry
+   */
+  def findBundles(symbolicName: String, version: VersionRange): List[BundleInfo] = {
+    symbolicNameIndex.get(symbolicName) match {
+      case None => List.empty
+      case Some(candidates) => prioritize(candidates filter { version contains _.version })
     }
   }
   
   /**
-   * Finds a unique bundle in the registry that matches the
-   * given fragment-host constraint
+   * Convenience method to find a unique bundle in the registry that
+   * matches the given fragment-host constraint. If the method finds
+   * multiple bundles matching the constraint, it returns the one
+   * that fits best.
    * @param fh the fragment-host constraint
    * @return the bundle that matches the constraint or None if
    * there is no such bundle in the registry
@@ -331,14 +348,39 @@ class BundleRegistry {
     findBundle(fh.symbolicName, fh.version)
   
   /**
-   * Finds a unique bundle in the registry that matches the
-   * given require-bundle constraint
+   * Finds all bundles in the registry that match the given
+   * fragment-host constraint. The returned list of bundles is sorted
+   * by their priority. That means the first bundle in the list is the
+   * one that matches the constraint best.
+   * @return the bundles that match the constraint or an empty list if
+   * there are no such bundles in the registry
+   */
+  def findBundles(fh: FragmentHost): List[BundleInfo] = 
+    findBundles(fh.symbolicName, fh.version)
+  
+  /**
+   * Convenience method to find a unique bundle in the registry
+   * that matches the given require-bundle constraint. If the method finds
+   * multiple bundles matching the constraint, it returns the one
+   * that fits best.
    * @param r the require-bundle constraint
    * @return the bundle that matches the constraint or None if
    * there is no such bundle in the registry
    */
   def findBundle(r: RequiredBundle): Option[BundleInfo] =
     findBundle(r.symbolicName, r.version)
+  
+  /**
+   * Finds all bundles in the registry that match the given
+   * require-bundle constraint. The returned list of bundles is
+   * sorted by their priority. That means the first bundle in the
+   * list is the one that matches the constraint best.
+   * @param r the require-bundle constraint
+   * @return the bundles that match the constraint or an empty list if
+   * there are no such bundles in the registry
+   */
+  def findBundles(r: RequiredBundle): List[BundleInfo] = 
+    findBundles(r.symbolicName, r.version)
   
   /**
    * Finds all fragments of a given bundle
@@ -354,8 +396,10 @@ class BundleRegistry {
   }
   
   /**
-   * Finds a unique bundle in the registry that exports a package
-   * that matches the given import-package constraint
+   * Convenience method to find a unique bundle in the registry
+   * that exports a package that matches the given import-package
+   * constraint. If the method finds multiple bundles exporting such
+   * a package, it returns the one that fits best.
    * @param r the import-package constraint
    * @return the bundle that exports a package that matches the
    * constraint or None if there is no such bundle in the registry
@@ -365,7 +409,16 @@ class BundleRegistry {
     if (result.isEmpty) None else Some(result(0))
   }
   
-  private def findBundles(i: ImportedPackage): List[BundleInfo] = {
+  /**
+   * Finds all bundles in the registry that match the given
+   * import-package constraint. The returned list of bundles is
+   * sorted by their priority. That means the first bundle in the
+   * list is the one that matches the constraint best.
+   * @param r the import-package constraint
+   * @return the bundles that match the constraint or an empty list if
+   * there are no such bundles in the registry
+   */
+  def findBundles(i: ImportedPackage): List[BundleInfo] = {
     val result = exportedPackageIndex.get(i.name) map { candidates =>
       candidates filter { c =>
         //check if the version of the exported package matches the required one
