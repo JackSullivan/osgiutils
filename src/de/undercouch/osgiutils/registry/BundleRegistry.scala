@@ -259,20 +259,14 @@ class BundleRegistry {
    * dependencies (resolved or unresolved bundles) or missing ones
    */
   def calculateRequiredBundlesShallow(bundle: BundleInfo, includeOptional: Boolean = false): Set[ResolverResult] = {
-    //calculate list of required bundles but do not include optional bundles
-    //if includeOptional is false or if they are unknown to the registry
-    val a = bundle.requiredBundles filter { includeOptional || !_.optional } flatMap { rb =>
-      findBundle(rb) match {
-        case Some(b) => getResolverResult(b)
-        case None if rb.optional => None
-        case None => Some(MissingRequiredBundle(bundle, rb))
+    (calculateRequiredBundlesShallowInternal(bundle, includeOptional) flatMap {
+      case RequiredBundleWire(_, rb, candidates) => candidates match {
+        case List() if rb.optional => None
+        case List() => Some(MissingRequiredBundle(bundle, rb))
+        case _ => getResolverResult(candidates(0))
       }
-    }
-    
-    //calculate list of required bundles by imported packages
-    val b = bundle.importedPackages filter { includeOptional || !_.optional } flatMap { ip =>
-      val r = findBundles(ip)
-      r match {
+      
+      case ImportedPackageWire(_, ip, candidates) => candidates match {
         case head :: Nil if head == bundle =>
           //ignore internal dependency, but
           //do not produce an error
@@ -292,17 +286,32 @@ class BundleRegistry {
           //produce missing dependency error
           Some(MissingImportedPackage(bundle, ip))
       }
+      
+      case FragmentHostWire(_, fh, candidates) => candidates match {
+        case List() => Some(MissingFragmentHost(bundle, fh))
+        case _ => getResolverResult(candidates(0))
+      }
+    }).toSet
+  }
+  
+  def calculateRequiredBundlesShallowInternal(bundle: BundleInfo, includeOptional: Boolean = false): List[Wire] = {
+    //calculate list of required bundles but do not include optional bundles
+    //if includeOptional is false or if they are unknown to the registry
+    val a = bundle.requiredBundles filter { includeOptional || !_.optional } map { rb =>
+      RequiredBundleWire(bundle, rb, findBundles(rb))
+    }
+    
+    //calculate list of required bundles by imported packages
+    val b = bundle.importedPackages filter { includeOptional || !_.optional } map { ip =>
+      ImportedPackageWire(bundle, ip, findBundles(ip))
     }
     
     //add fragment host as required bundle if there is any
     val c = bundle.fragmentHost map { fh =>
-      findBundle(fh) match {
-        case Some(b) => getResolverResult(b).get
-        case None => MissingFragmentHost(bundle, fh)
-      }
+      FragmentHostWire(bundle, fh, findBundles(fh))
     }
     
-    (a ++ b ++ c).toSet
+    a ++ b ++ c
   }
   
   /**
@@ -534,4 +543,15 @@ object BundleRegistry {
     @BeanProperty val fragmentHost: FragmentHost) extends ResolverResult(b) with ResolverError {
     override def toString(): String = "Missing fragment host " + fragmentHost + " in " + b
   }
+  
+  private sealed abstract class Wire(val bundle: BundleInfo)
+  
+  private case class RequiredBundleWire(b: BundleInfo, rb: RequiredBundle,
+    candidates: List[BundleInfo]) extends Wire(b)
+  
+  private case class ImportedPackageWire(b: BundleInfo, ip: ImportedPackage,
+    candidates: List[BundleInfo]) extends Wire(b)
+  
+  private case class FragmentHostWire(b: BundleInfo, fh: FragmentHost,
+    candidates: List[BundleInfo]) extends Wire(b)
 }
