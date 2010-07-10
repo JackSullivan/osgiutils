@@ -127,7 +127,9 @@ object BundleInfo {
   type Header = List[HeaderClause]
   
   //header parser result classes
-  private sealed trait ParsedHeaderDecl
+  private sealed trait ParsedHeaderDecl {
+    val name: String
+  }
   private case class ParsedHeader(name: String) extends ParsedHeaderDecl
   private case class ParsedDirective(name: String, value: String) extends ParsedHeaderDecl
   private case class ParsedParam(name: String, value: String) extends ParsedHeaderDecl

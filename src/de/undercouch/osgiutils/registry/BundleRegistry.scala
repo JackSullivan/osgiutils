@@ -294,7 +294,7 @@ class BundleRegistry {
     }).toSet
   }
   
-  def calculateRequiredBundlesShallowInternal(bundle: BundleInfo, includeOptional: Boolean = false): List[Wire] = {
+  private def calculateRequiredBundlesShallowInternal(bundle: BundleInfo, includeOptional: Boolean = false): List[Wire] = {
     //calculate list of required bundles but do not include optional bundles
     //if includeOptional is false or if they are unknown to the registry
     val a = bundle.requiredBundles filter { includeOptional || !_.optional } map { rb =>
@@ -508,50 +508,55 @@ object BundleRegistry {
   /**
    * The result of the resolving process
    */
-  sealed abstract class ResolverResult(@BeanProperty val bundle: BundleInfo)
+  sealed trait ResolverResult {
+    @BeanProperty
+    val bundle: BundleInfo
+  }
   
   /**
    * Describes an unresolved bundle.
    */
-  case class Unresolved(b: BundleInfo) extends ResolverResult(b)
+  case class Unresolved(@BeanProperty bundle: BundleInfo) extends ResolverResult
   
   /**
    * Describes a resolved bundle
    */
-  case class Resolved(b: BundleInfo) extends ResolverResult(b)
+  case class Resolved(@BeanProperty bundle: BundleInfo) extends ResolverResult
   
   /**
    * This resolver error occurs when a required bundle could not be found
    */
-  case class MissingRequiredBundle(b: BundleInfo,
-    @BeanProperty val requiredBundle: RequiredBundle) extends ResolverResult(b) with ResolverError {
-    override def toString(): String = "Missing required bundle " + requiredBundle + " in " + b
+  case class MissingRequiredBundle(@BeanProperty bundle: BundleInfo,
+    @BeanProperty val requiredBundle: RequiredBundle) extends ResolverResult with ResolverError {
+    override def toString(): String = "Missing required bundle " + requiredBundle + " in " + bundle
   }
   
   /**
    * This resolver error occurs when an imported package could not be found
    */
-  case class MissingImportedPackage(b: BundleInfo,
-    @BeanProperty val importedPackage: ImportedPackage) extends ResolverResult(b) with ResolverError {
-    override def toString(): String = "Missing imported package " + importedPackage + " in " + b
+  case class MissingImportedPackage(@BeanProperty bundle: BundleInfo,
+    @BeanProperty val importedPackage: ImportedPackage) extends ResolverResult with ResolverError {
+    override def toString(): String = "Missing imported package " + importedPackage + " in " + bundle
   }
   
   /**
    * This resolver error occurs when the host of a fragment could not be found
    */
-  case class MissingFragmentHost(b: BundleInfo,
-    @BeanProperty val fragmentHost: FragmentHost) extends ResolverResult(b) with ResolverError {
-    override def toString(): String = "Missing fragment host " + fragmentHost + " in " + b
+  case class MissingFragmentHost(@BeanProperty bundle: BundleInfo,
+    @BeanProperty val fragmentHost: FragmentHost) extends ResolverResult with ResolverError {
+    override def toString(): String = "Missing fragment host " + fragmentHost + " in " + bundle
   }
   
-  private sealed abstract class Wire(val bundle: BundleInfo)
+  private sealed trait Wire {
+    val bundle: BundleInfo
+  }
   
-  private case class RequiredBundleWire(b: BundleInfo, rb: RequiredBundle,
-    candidates: List[BundleInfo]) extends Wire(b)
+  private case class RequiredBundleWire(bundle: BundleInfo, rb: RequiredBundle,
+    candidates: List[BundleInfo]) extends Wire
   
-  private case class ImportedPackageWire(b: BundleInfo, ip: ImportedPackage,
-    candidates: List[BundleInfo]) extends Wire(b)
+  private case class ImportedPackageWire(bundle: BundleInfo, ip: ImportedPackage,
+    candidates: List[BundleInfo]) extends Wire
   
-  private case class FragmentHostWire(b: BundleInfo, fh: FragmentHost,
-    candidates: List[BundleInfo]) extends Wire(b)
+  private case class FragmentHostWire(bundle: BundleInfo, fh: FragmentHost,
+    candidates: List[BundleInfo]) extends Wire
 }
