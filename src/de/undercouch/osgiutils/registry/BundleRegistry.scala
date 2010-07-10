@@ -75,6 +75,12 @@ class BundleRegistry {
   //bundle since the system bundle has always ID 0
   addSystemBundle()
   
+  /**
+   * Creates the system bundle and adds it to the registry. Uses the
+   * system properties <code>org.osgi.framework.system.packages</code> and
+   * <code>org.osgi.framework.system.packages.extra</code> to build to list
+   * of packages exported by the system bundle.
+   */
   private def addSystemBundle() {
     //get system packages
     var systemPackages = System.getProperty(FrameworkSystemPackages)
@@ -196,12 +202,21 @@ class BundleRegistry {
    * Trys to resolve a single bundle (no matter if it has
    * already been added to the registry or not)
    * @param bundle the bundle to resolve
-   * @return the errors occured during the resolving process. This
+   * @return the errors occurred during the resolving process. This
    * set is empty if the bundle was resolved successfully.
    */
   def resolveBundle(bundle: BundleInfo): Set[ResolverError] =
     resolveBundleCached(bundle)(new ResolverCache())
-    
+  
+  /**
+   * Trys to resolve a single bundle (no matter if it has
+   * already been added to the registry or not). Caches transitive dependencies
+   * to speed up resolving process.
+   * @param bundle the bundle to resolve
+   * @param cache saves transitives dependencies during the resolving process 
+   * @return the errors occurred during the resolving process. This
+   * set is empty if the bundle was resolved successfully.
+   */
   private def resolveBundleCached(bundle: BundleInfo)(implicit cache: ResolverCache): Set[ResolverError] = {
     getResolverResult(bundle) match {
       case Some(r: Resolved) => Set.empty
@@ -248,6 +263,17 @@ class BundleRegistry {
     traverseWires(wires, bundle)
   }
   
+  /**
+   * Calculates the transitive dependencies of the given bundle. This
+   * method returns a map that contains a Wire object for each dependency. Each Wire
+   * contains a list of bundles that fulfill the respective dependency. If this list
+   * is empty, the wire describes a missing dependency. 
+   * @param bundle the bundle to calculate the transitive dependencies for
+   * @param includeOptional true if optional dependencies should also be
+   * calculated if they are known to the registry
+   * @param cache saves transitives dependencies during the resolving process 
+   * @return a map of Wire objects
+   */
   private def calculateWires(bundle: BundleInfo, includeOptional: Boolean,
     path: List[BundleInfo])(implicit cache: ResolverCache): MultiMap[BundleInfo, Wire] = {
     //check cache first
@@ -321,6 +347,14 @@ class BundleRegistry {
     r map { a => (a._1 -> a._2.toSet) }
   }
   
+  /**
+   * Traverses the given map of wires and finds the best dependency graph that
+   * contains the bundles with the best possible priority and that is free of
+   * uses conflicts
+   * @param wires the map of wires to traverse
+   * @param bundle the bundle to use as the starting point for traversal
+   * @return a set containing the transitive dependencies of the given bundle
+   */
   private def traverseWires(wires: MultiMap[BundleInfo, Wire], bundle: BundleInfo): Set[ResolverResult] = {
     wires.get(bundle) match {
       case Some(s) =>
@@ -341,6 +375,13 @@ class BundleRegistry {
     }
   }
   
+  /**
+   * Traverses the given set of wires and returns resolver result objects
+   * describing either valid dependencies or constraint errors.
+   * @param wires the wires to traverse
+   * @param bundle the bundle the wires have been calculated for
+   * @return a set of resolver result objects
+   */
   private def traverseWires(wires: Set[Wire], bundle: BundleInfo): Set[ResolverResult] = wires flatMap {
     case RequiredBundleWire(_, rb, candidates) => candidates match {
       case List() if rb.optional => None
@@ -575,7 +616,7 @@ object BundleRegistry {
   }
   
   /**
-   * Describes an unresolved bundle.
+   * Describes an unresolved bundle
    */
   case class Unresolved(@BeanProperty bundle: BundleInfo) extends ResolverResult
   
@@ -608,17 +649,33 @@ object BundleRegistry {
     override def toString(): String = "Missing fragment host " + fragmentHost + " in " + bundle
   }
   
+  /**
+   * Describes a relation from a bundle to a list of candidates that
+   * would fulfill the bundle's dependencies
+   */
   private sealed trait Wire {
     val bundle: BundleInfo
     val candidates: List[BundleInfo]
   }
   
+  /**
+   * A wire that contains the candidates that would fulfill a
+   * required-bundle constraint
+   */
   private case class RequiredBundleWire(bundle: BundleInfo, rb: RequiredBundle,
     candidates: List[BundleInfo]) extends Wire
   
+  /**
+   * A wire that contains the candidates that would fulfill a
+   * imported-package constraint
+   */
   private case class ImportedPackageWire(bundle: BundleInfo, ip: ImportedPackage,
     candidates: List[BundleInfo]) extends Wire
   
+  /**
+   * A wire that contains the candidates that would fulfill a
+   * fragment-host constraint
+   */
   private case class FragmentHostWire(bundle: BundleInfo, fh: FragmentHost,
     candidates: List[BundleInfo]) extends Wire
 }
