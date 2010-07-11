@@ -27,29 +27,6 @@ class BundleRegistry {
   import ManifestConstants._
   
   /**
-   * A type alias for immutable maps with multiple values
-   */
-  private type MultiMap[A, B] = Map[A, Set[B]]
-  
-  /**
-   * A cache used during the resolving process to cache transitive
-   * dependencies for a given bundle
-   */
-  private type ResolverCache = mutable.HashMap[BundleInfo, MultiMap[BundleInfo, Wire]]
-  
-  /**
-   * A shortcut for mutable.MultiMap
-   * @author Michel Kraemer
-   */
-  private class MutableMultiMap[A, B] extends mutable.HashMap[A, mutable.Set[B]] with mutable.MultiMap[A, B]
-  
-  /**
-   * An item in the index of exported packages
-   * @author Michel Kraemer
-   */
-  private case class ExportedPackageItem(pkg: ExportedPackage, bundle: BundleInfo)
-  
-  /**
    * The registered bundles, their ID and the current state (resolved or not)
    */
   private var bundles = Map[BundleInfo, Tuple2[Int, ResolverResult]]()
@@ -57,19 +34,19 @@ class BundleRegistry {
   /**
    * The index of bundles. Maps symbolic names to bundles.
    */
-  private val symbolicNameIndex = new MutableMultiMap[String, BundleInfo]()
+  private val symbolicNameIndex = new MultiMap[String, BundleInfo]()
   
   /**
    * The index of exported packages. Maps package names to
    * exported packages and respective bundles
    */
-  private val exportedPackageIndex = new MutableMultiMap[String, ExportedPackageItem]()
+  private val exportedPackageIndex = new MultiMap[String, ExportedPackageItem]()
   
   /**
    * The index of bundle fragments. Maps symbolic names of
    * host bundles to fragments
    */
-  private val fragmentIndex = new MutableMultiMap[String, BundleInfo]()
+  private val fragmentIndex = new MultiMap[String, BundleInfo]()
   
   //add system.bundle. It must be added before any other
   //bundle since the system bundle has always ID 0
@@ -101,35 +78,6 @@ class BundleRegistry {
     attrs.putValue(ExportPackage, systemPackages)
     
     add(BundleInfo.fromManifest(m))
-  }
-  
-  /**
-   * Creates a new immutable multi-value map that contains the elements from the
-   * given multi-value map and additionally the given key-value pair.
-   * @param m the original multi-value map
-   * @param key the key of the new element
-   * @param value the value of the new element
-   * @return the new map
-   */
-  private def addMultiValue[A, B](m: MultiMap[A, B], key: A, value: B) = m.get(key) match {
-    case None => m + (key -> Set(value))
-    case Some(set) => m + (key -> (set + value))
-  }
-  
-  /**
-   * Creates a new immutable multi-value map that contains all elements from
-   * the given two maps.
-   * @param m1 the first map
-   * @param m2 the second map
-   * @return the new map
-   */
-  private def addAllMultiValues[A, B](m1: MultiMap[A, B], m2: MultiMap[A, B]) = {
-    m2.foldLeft(m1) { (m1b, keyToSet) =>
-      m1b.get(keyToSet._1) match {
-        case None => m1b + keyToSet
-        case Some(set) => m1b + (keyToSet._1 -> (set ++ keyToSet._2))
-      }
-    }
   }
   
   /**
@@ -259,160 +207,202 @@ class BundleRegistry {
   
   private def calculateRequiredBundlesInternal(bundle: BundleInfo, includeOptional: Boolean,
     path: List[BundleInfo])(implicit cache: ResolverCache): Set[ResolverResult] = {
-    val wires = calculateWires(bundle, includeOptional, path)
-    traverseWires(wires, bundle)
+    val graph = calculateGraph(bundle, includeOptional, path)
+    traverseGraph(graph)(new TraversalCache())
   }
   
   /**
-   * Calculates the transitive dependencies of the given bundle. This
-   * method returns a map that contains a Wire object for each dependency. Each Wire
-   * contains a list of bundles that fulfill the respective dependency. If this list
-   * is empty, the wire describes a missing dependency. 
+   * Calculates the transitive dependency graph of the given bundle. This
+   * method returns a BundleNode that contains a list of Wires that
+   * respresent the bundle's dependencies.
    * @param bundle the bundle to calculate the transitive dependencies for
    * @param includeOptional true if optional dependencies should also be
    * calculated if they are known to the registry
    * @param cache saves transitives dependencies during the resolving process 
-   * @return a map of Wire objects
+   * @return a BundleNode object
    */
-  private def calculateWires(bundle: BundleInfo, includeOptional: Boolean,
-    path: List[BundleInfo])(implicit cache: ResolverCache): MultiMap[BundleInfo, Wire] = {
+  private def calculateGraph(bundle: BundleInfo, includeOptional: Boolean,
+    path: List[BundleInfo])(implicit cache: ResolverCache): BundleNode = {
     //check cache first
     cache.get(bundle) match {
-      case Some(deps) =>
+      case Some(node) =>
         //return cached transitive dependencies
-        deps
+        node
       
       case None =>
         //calculate direct dependencies for the current bundle
         val deps = calculateWiresShallow(bundle, includeOptional)
         
         //calculate transitive dependencies
-        val transitive = for {
-          dep <- deps
-          wire <- dep._2
-          candidate <- wire.candidates if candidate != bundle
-        } yield {
-          if (path.contains(candidate)) {
-            //the current bundle depends on a bundle already in the current path
-            //that means that a dependency cycle has been detected
-            val cycle = (path drop (path indexOf candidate)) ++ List(bundle, candidate)
-            val symbolicNames = cycle map { _.symbolicName } reduceLeft { _ + ", " + _ }
-            throw new DependencyCycleException("Dependency cycle detected: " + symbolicNames, cycle.toArray)
-          }
+        val transitive: Set[Wire] = deps map {
+          case w: DirectWire =>
+            DirectWire(calculateWiresFor(w.candidate, bundle, includeOptional, path))
+            
+          case w: RequiredBundleWire =>
+            RequiredBundleWire(w.rb, w.candidates map { c =>
+              calculateWiresFor(c, bundle, includeOptional, path)
+            })
           
-          //calculate transitive dependencies
-          calculateWires(candidate, includeOptional, path ++ List(bundle))
+          case w: ImportedPackageWire =>
+            ImportedPackageWire(w.p, w.candidates map { c =>
+              calculateWiresFor(c, bundle, includeOptional, path)
+            })
+          
+          case w: FragmentHostWire =>
+            FragmentHostWire(w.fh, w.candidates map { c =>
+              calculateWiresFor(c, bundle, includeOptional, path)
+            })
         }
         
-        val r = transitive.foldLeft(deps)(addAllMultiValues)
+        val node = BundleNode(bundle, transitive)
         
         //cache transitive dependencies
-        cache += (bundle -> r)
+        cache += (bundle -> node)
         
-        r
+        node
     }
+  }
+  
+  private def calculateWiresFor(node: BundleNode, bundle: BundleInfo, includeOptional: Boolean,
+      path: List[BundleInfo])(implicit cache: ResolverCache): BundleNode = node match {
+    case BundleNode(candidate, _) if candidate == bundle =>
+      //ignore internal dependency
+      node
+      
+    case BundleNode(candidate, _) if path.contains(candidate) =>
+      //the current bundle depends on a bundle already in the current path
+      //that means that a dependency cycle has been detected
+      val cycle = (path drop (path indexOf candidate)) ++ List(bundle, candidate)
+      val symbolicNames = cycle map { _.symbolicName } reduceLeft { _ + ", " + _ }
+      throw new DependencyCycleException("Dependency cycle detected: " + symbolicNames, cycle.toArray)
+    
+    case BundleNode(candidate, _) =>
+      //calculate transitive dependencies
+      calculateGraph(candidate, includeOptional, path ++ List(bundle))
   }
   
   /**
    * Calculates the direct, non-transitive dependencies of the given bundle. This
-   * method returns a map that contains a Wire object for each dependency. Each Wire
+   * method returns a set that contains a Wire object for each dependency. Each Wire
    * contains a list of bundles that fulfill the respective dependency. If this list
    * is empty, the wire describes a missing dependency. 
    * @param bundle the bundle to calculate the direct dependencies for
    * @param includeOptional true if optional dependencies should also be
    * calculated if they are known to the registry
-   * @return a map of Wire objects
+   * @return a set of Wire objects
    */
   private def calculateWiresShallow(bundle: BundleInfo,
-      includeOptional: Boolean = false): MultiMap[BundleInfo, Wire] = {
-    val r = new MutableMultiMap[BundleInfo, Wire]
-    
+      includeOptional: Boolean = false): Set[Wire] = {
     //calculate list of required bundles but do not include optional bundles
     //if includeOptional is false or if they are unknown to the registry
-    bundle.requiredBundles filter { includeOptional || !_.optional } foreach { rb =>
-      r.addBinding(bundle, RequiredBundleWire(bundle, rb, findBundles(rb)))
+    val a = bundle.requiredBundles filter { includeOptional || !_.optional } map { rb =>
+      val bundles = findBundles(rb)
+      if (bundles.length == 1)
+        DirectWire(BundleNode(bundles(0)))
+      else
+        RequiredBundleWire(rb, bundles map { b => BundleNode(b) })
     }
     
     //calculate list of required bundles by imported packages
-    bundle.importedPackages filter { includeOptional || !_.optional } foreach { ip =>
-      r.addBinding(bundle, ImportedPackageWire(bundle, ip, findBundles(ip)))
+    val b = bundle.importedPackages filter { includeOptional || !_.optional } map { ip =>
+      val bundles = findBundles(ip)
+      if (bundles.length == 1)
+        DirectWire(BundleNode(bundles(0)))
+      else
+        ImportedPackageWire(ip, bundles map { b => BundleNode(b) })
     }
     
     //add fragment host as required bundle if there is any
-    bundle.fragmentHost foreach { fh =>
-      r.addBinding(bundle, FragmentHostWire(bundle, fh, findBundles(fh)))
+    val c = bundle.fragmentHost map { fh =>
+      val bundles = findBundles(fh)
+      if (bundles.length == 1)
+        DirectWire(BundleNode(bundles(0)))
+      else
+        FragmentHostWire(fh, bundles map { b => BundleNode(b) })
     }
     
-    //convert to immutable multi-value map
-    r map { a => (a._1 -> a._2.toSet) }
+    (a ++ b ++ c).toSet
   }
   
   /**
-   * Traverses the given map of wires and finds the best dependency graph that
-   * contains the bundles with the best possible priority and that is free of
-   * uses conflicts
-   * @param wires the map of wires to traverse
-   * @param bundle the bundle to use as the starting point for traversal
-   * @return a set containing the transitive dependencies of the given bundle
+   * Traverses the given dependency graph and finds the best combination of
+   * bundles that fulfills all constraints and is free of uses conflicts
+   * @param graph the dependency graph to traverse
+   * @param cache a cache used to speed up traversal
+   * @return a set containing the calculated transitive dependencies
    */
-  private def traverseWires(wires: MultiMap[BundleInfo, Wire], bundle: BundleInfo): Set[ResolverResult] = {
-    wires.get(bundle) match {
+  private def traverseGraph(graph: BundleNode)(implicit cache: TraversalCache): Set[ResolverResult] = {
+    //check cache first
+    cache.get(graph.bundle) match {
       case Some(s) =>
-        val shallow = traverseWires(s, bundle)
-        val transitive = shallow flatMap {
-          case _: ResolverError =>
-            //don't traverse errors
-            Set.empty[ResolverResult]
-            
-          case rr =>
-            traverseWires(wires, rr.bundle)
-        }
-        shallow ++ transitive
-        
+        //return cached result first
+        s
+      
       case None =>
-        //bundle has no dependencies
-        Set.empty
+        val shallow = traverseWires(graph.wires, graph.bundle)
+        val transitive = shallow.foldLeft(Set.empty[ResolverResult]) {
+          case (s, Left(n)) => s ++ getResolverResult(n.bundle) ++ traverseGraph(n)
+          case (s, Right(e)) => s + e
+        }
+        
+        //cache result
+        cache += (graph.bundle -> transitive)
+        
+        transitive
     }
   }
   
   /**
-   * Traverses the given set of wires and returns resolver result objects
+   * Traverses the list of wires and returns resolver result objects
    * describing either valid dependencies or constraint errors.
    * @param wires the wires to traverse
    * @param bundle the bundle the wires have been calculated for
    * @return a set of resolver result objects
    */
-  private def traverseWires(wires: Set[Wire], bundle: BundleInfo): Set[ResolverResult] = wires flatMap {
-    case RequiredBundleWire(_, rb, candidates) => candidates match {
-      case List() if rb.optional => None
-      case List() => Some(MissingRequiredBundle(bundle, rb))
-      case _ => getResolverResult(candidates(0))
-    }
-    
-    case ImportedPackageWire(_, ip, candidates) => candidates match {
-      case head :: Nil if head == bundle =>
-        //ignore internal dependency, but
-        //do not produce an error
-        None
-      case head :: tail if head == bundle =>
-        //ignore internal dependency and
-        //use the external one
-        getResolverResult(tail(0))
-      case head :: tail =>
-        //use dependency with highest priority
-        getResolverResult(head)
-      case List() if ip.optional =>
-        //ignore missing dependency if the
-        //import-package declaration is optional
-        None
-      case List() =>
-        //produce missing dependency error
-        Some(MissingImportedPackage(bundle, ip))
-    }
-    
-    case FragmentHostWire(_, fh, candidates) => candidates match {
-      case List() => Some(MissingFragmentHost(bundle, fh))
-      case _ => getResolverResult(candidates(0))
+  private def traverseWires(wires: Set[Wire], bundle: BundleInfo): Set[Either[BundleNode, ResolverResult]] = {
+    wires flatMap {
+      case DirectWire(candidate) =>
+        if (candidate.bundle == bundle)
+          //ignore internal dependency
+          None
+        else
+          Some(Left(candidate))
+      
+      case ImportedPackageWire(ip, candidates) => candidates match {
+        case head :: Nil if head.bundle == bundle =>
+          //ignore internal dependency, but
+          //do not produce an error
+          None
+        case head :: tail if head.bundle == bundle =>
+          //ignore internal dependency and
+          //use the external one
+          Some(Left(tail(0)))
+        case head :: tail =>
+          //use dependency with highest priority
+          Some(Left(head))
+        case List() if ip.optional =>
+          //ignore missing dependency if the
+          //import-package declaration is optional
+          None
+        case List() =>
+          //produce missing dependency error
+          Some(Right(MissingImportedPackage(bundle, ip)))
+      }
+      
+      case RequiredBundleWire(rb, candidates) => candidates match {
+        case List() if rb.optional => None
+        case List() => Some(Right(MissingRequiredBundle(bundle, rb)))
+        case head :: Nil if head.bundle == bundle => None
+        case head :: tail if head.bundle == bundle => Some(Left(tail(0)))
+        case _ => Some(Left(candidates(0)))
+      }
+      
+      case FragmentHostWire(fh, candidates) => candidates match {
+        case List() => Some(Right(MissingFragmentHost(bundle, fh)))
+        case head :: Nil if head.bundle == bundle => None
+        case head :: tail if head.bundle == bundle => Some(Left(tail(0)))
+        case _ => Some(Left(candidates(0)))
+      }
     }
   }
   
@@ -603,6 +593,18 @@ class BundleRegistry {
  */
 object BundleRegistry {
   /**
+   * A shortcut for mutable.MultiMap
+   * @author Michel Kraemer
+   */
+  private class MultiMap[A, B] extends mutable.HashMap[A, mutable.Set[B]] with mutable.MultiMap[A, B]
+  
+  /**
+   * An item in the index of exported packages
+   * @author Michel Kraemer
+   */
+  private case class ExportedPackageItem(pkg: ExportedPackage, bundle: BundleInfo)
+  
+  /**
    * A marker interface for resolver errors
    */
   sealed trait ResolverError
@@ -650,32 +652,67 @@ object BundleRegistry {
   }
   
   /**
+   * A cache used during the resolving process to cache transitive
+   * dependencies for a given bundle
+   */
+  private type ResolverCache = mutable.HashMap[BundleInfo, BundleNode]
+  
+  /**
+   * A cache used during traversal of wires
+   */
+  private type TraversalCache = mutable.HashMap[BundleInfo, Set[ResolverResult]]
+  
+  /**
+   * <p>This is a node in the dependency graph.</p>
+   * <p>Overrides <code>equals()</code> and <code>hashCode()</code> since
+   * <code>bundle</code> is the only attribute of interest. This speeds up
+   * the resolving process a lot.</p>
+   */
+  private case class BundleNode(val bundle: BundleInfo, val wires: Set[Wire] = Set.empty) {
+    override def equals(o: Any): Boolean = o match {
+      case that: BundleNode => bundle == that.bundle
+      case _ => false
+    }
+    
+    override def hashCode(): Int = bundle.hashCode
+  }
+  
+  /**
    * Describes a relation from a bundle to a list of candidates that
    * would fulfill the bundle's dependencies
    */
-  private sealed trait Wire {
-    val bundle: BundleInfo
-    val candidates: List[BundleInfo]
+  private sealed trait Wire
+  
+  /**
+   * A wire that has only one candidate
+   */
+  private case class DirectWire(candidate: BundleNode) extends Wire
+  
+  /**
+   * A trait for wires that have more than one candidate
+   */
+  private trait AmbigiousWire {
+    val candidates: List[BundleNode]
   }
   
   /**
    * A wire that contains the candidates that would fulfill a
    * required-bundle constraint
    */
-  private case class RequiredBundleWire(bundle: BundleInfo, rb: RequiredBundle,
-    candidates: List[BundleInfo]) extends Wire
+  private case class RequiredBundleWire(rb: RequiredBundle,
+    candidates: List[BundleNode]) extends Wire with AmbigiousWire
   
   /**
    * A wire that contains the candidates that would fulfill a
    * imported-package constraint
    */
-  private case class ImportedPackageWire(bundle: BundleInfo, ip: ImportedPackage,
-    candidates: List[BundleInfo]) extends Wire
+  private case class ImportedPackageWire(p: ImportedPackage,
+    candidates: List[BundleNode]) extends Wire with AmbigiousWire
   
   /**
    * A wire that contains the candidates that would fulfill a
    * fragment-host constraint
    */
-  private case class FragmentHostWire(bundle: BundleInfo, fh: FragmentHost,
-    candidates: List[BundleInfo]) extends Wire
+  private case class FragmentHostWire(fh: FragmentHost,
+    candidates: List[BundleNode]) extends Wire with AmbigiousWire
 }
