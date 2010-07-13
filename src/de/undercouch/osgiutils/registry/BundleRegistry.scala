@@ -132,6 +132,7 @@ class BundleRegistry {
    */
   def resolveBundles(): Set[ResolverError] = {
     implicit val cache = new ResolverCache()
+    implicit val tcache = new TraversalCache()
     bundles.foldLeft(Set.empty[ResolverError]) { (r, b) => r ++ resolveBundleCached(b._1) }
   }
   
@@ -154,7 +155,7 @@ class BundleRegistry {
    * set is empty if the bundle was resolved successfully.
    */
   def resolveBundle(bundle: BundleInfo): Set[ResolverError] =
-    resolveBundleCached(bundle)(new ResolverCache())
+    resolveBundleCached(bundle)(new ResolverCache(), new TraversalCache())
   
   /**
    * Trys to resolve a single bundle (no matter if it has
@@ -165,14 +166,16 @@ class BundleRegistry {
    * @return the errors occurred during the resolving process. This
    * set is empty if the bundle was resolved successfully.
    */
-  private def resolveBundleCached(bundle: BundleInfo)(implicit cache: ResolverCache): Set[ResolverError] = {
+  private def resolveBundleCached(bundle: BundleInfo)(implicit cache: ResolverCache,
+      tcache: TraversalCache): Set[ResolverError] = {
     getResolverResult(bundle) match {
       case Some(r: Resolved) => Set.empty
       case _ => resolveBundleInternal(bundle)
     }
   }
   
-  private def resolveBundleInternal(bundle: BundleInfo)(implicit cache: ResolverCache): Set[ResolverError] = {
+  private def resolveBundleInternal(bundle: BundleInfo)(implicit cache: ResolverCache,
+      tcache: TraversalCache): Set[ResolverError] = {
     //find resolver errors
     val errors = calculateRequiredBundlesInternal(bundle, false, List.empty) collect {
       case d: ResolverError => d: ResolverError
@@ -203,13 +206,11 @@ class BundleRegistry {
    * @throws DependencyCycleException if the transitive dependencies contain a cycle
    */
   def calculateRequiredBundles(bundle: BundleInfo, includeOptional: Boolean = false): Set[ResolverResult] =
-    calculateRequiredBundlesInternal(bundle, includeOptional, List.empty)(new ResolverCache())
+    calculateRequiredBundlesInternal(bundle, includeOptional, List.empty)(new ResolverCache(), new TraversalCache())
   
   private def calculateRequiredBundlesInternal(bundle: BundleInfo, includeOptional: Boolean,
-    path: List[BundleInfo])(implicit cache: ResolverCache): Set[ResolverResult] = {
-    val graph = calculateGraph(bundle, includeOptional, path)
-    traverseGraph(graph)(new TraversalCache())
-  }
+      path: List[BundleInfo])(implicit cache: ResolverCache, tcache: TraversalCache): Set[ResolverResult] =
+    traverseGraph(calculateGraph(bundle, includeOptional, path))
   
   /**
    * Calculates the transitive dependency graph of the given bundle. This
@@ -345,8 +346,14 @@ class BundleRegistry {
           case (s, Right(e)) => s + e
         }
         
-        //cache result
-        cache += (graph.bundle -> transitive)
+        //cache result (only of it is not ambiguous)
+        val ambigious = graph.wires exists {
+          case aw: AmbiguousWire if aw.candidates.length == 2 => aw.candidates(0) != graph.bundle
+          case aw: AmbiguousWire if aw.candidates.length > 2 => true
+          case _ => false
+        }
+        if (!ambigious)
+          cache += (graph.bundle -> transitive)
         
         transitive
     }
@@ -691,7 +698,7 @@ object BundleRegistry {
   /**
    * A trait for wires that have more than one candidate
    */
-  private trait AmbigiousWire {
+  private trait AmbiguousWire {
     val candidates: List[BundleNode]
   }
   
@@ -700,19 +707,19 @@ object BundleRegistry {
    * required-bundle constraint
    */
   private case class RequiredBundleWire(rb: RequiredBundle,
-    candidates: List[BundleNode]) extends Wire with AmbigiousWire
+    candidates: List[BundleNode]) extends Wire with AmbiguousWire
   
   /**
    * A wire that contains the candidates that would fulfill a
    * imported-package constraint
    */
   private case class ImportedPackageWire(p: ImportedPackage,
-    candidates: List[BundleNode]) extends Wire with AmbigiousWire
+    candidates: List[BundleNode]) extends Wire with AmbiguousWire
   
   /**
    * A wire that contains the candidates that would fulfill a
    * fragment-host constraint
    */
   private case class FragmentHostWire(fh: FragmentHost,
-    candidates: List[BundleNode]) extends Wire with AmbigiousWire
+    candidates: List[BundleNode]) extends Wire with AmbiguousWire
 }
