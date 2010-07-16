@@ -464,5 +464,39 @@ class BundleRegistrySpec extends WordSpec with ShouldMatchers {
       
       reg.resolveBundles()
     }
+    
+    "resolve uses conflict correctly" in {
+      val C1 = makeBundle("C1", version = Version(1), exportedPackages = List(ExportedPackage("p")))
+      val C2 = makeBundle("C2", version = Version(2), exportedPackages = List(ExportedPackage("p")))
+      val B = makeBundle("B", importedPackages = List(ImportedPackage("p")),
+          exportedPackages = List(ExportedPackage("q", uses = Set("p"))))
+      val A = makeBundle("A", importedPackages = List(ImportedPackage("q"), ImportedPackage("p")))
+      
+      val reg = new BundleRegistry()
+      reg.add(C1)
+      reg.add(C2)
+      reg.add(B)
+      reg.add(A)
+      
+      reg.calculateRequiredBundles(A) should (
+        have size (2) and
+        contain (Unresolved(B): ResolverResult) and
+        contain (Unresolved(C2): ResolverResult)
+      )
+      
+      val B2 = makeBundle("B", importedPackages = List(ImportedPackage("p",
+          bundleVersion = VersionRange(Version(1), Version(2), true, false))),
+        exportedPackages = List(ExportedPackage("r", uses = Set("p"))))
+      val A2 = makeBundle("A", importedPackages = List(ImportedPackage("r"), ImportedPackage("p")))
+      
+      reg.add(B2)
+      reg.add(A2)
+      
+      reg.calculateRequiredBundles(A2) should (
+        have size (2) and
+        contain (Unresolved(B2): ResolverResult) and
+        contain (Unresolved(C1): ResolverResult)
+      )
+    }
   }
 }
