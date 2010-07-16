@@ -162,7 +162,7 @@ class BundleRegistry {
    * already been added to the registry or not). Caches transitive dependencies
    * to speed up resolving process.
    * @param bundle the bundle to resolve
-   * @param cache saves transitives dependencies during the resolving process 
+   * @param cache saves transitive dependencies during the resolving process 
    * @return the errors occurred during the resolving process. This
    * set is empty if the bundle was resolved successfully.
    */
@@ -215,11 +215,11 @@ class BundleRegistry {
   /**
    * Calculates the transitive dependency graph of the given bundle. This
    * method returns a BundleNode that contains a list of Wires that
-   * respresent the bundle's dependencies.
+   * represent the bundle's dependencies.
    * @param bundle the bundle to calculate the transitive dependencies for
    * @param includeOptional true if optional dependencies should also be
    * calculated if they are known to the registry
-   * @param cache saves transitives dependencies during the resolving process 
+   * @param cache saves transitive dependencies during the resolving process 
    * @return a BundleNode object
    */
   private def calculateGraph(bundle: BundleInfo, includeOptional: Boolean,
