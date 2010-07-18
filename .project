@@ -6,6 +6,16 @@
 	</projects>
 	<buildSpec>
 		<buildCommand>
+			<name>org.eclipse.pde.ManifestBuilder</name>
+			<arguments>
+			</arguments>
+		</buildCommand>
+		<buildCommand>
+			<name>org.eclipse.pde.SchemaBuilder</name>
+			<arguments>
+			</arguments>
+		</buildCommand>
+		<buildCommand>
 			<name>ch.epfl.lamp.sdt.core.scalabuilder</name>
 			<arguments>
 			</arguments>
@@ -14,6 +24,7 @@
 	<natures>
 		<nature>ch.epfl.lamp.sdt.core.scalanature</nature>
 		<nature>org.eclipse.jdt.core.javanature</nature>
+		<nature>org.eclipse.pde.PluginNature</nature>
 		<nature>sbt.eclipse.nature</nature>
 	</natures>
 </projectDescription>
