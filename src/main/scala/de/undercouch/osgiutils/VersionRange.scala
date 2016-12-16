@@ -11,8 +11,7 @@
 
 package de.undercouch.osgiutils
 
-import scala.reflect.{BeanProperty, BooleanBeanProperty}
-import scala.util.matching.Regex
+import scala.beans.{BeanProperty, BooleanBeanProperty}
 import scala.util.parsing.combinator._
 import scala.util.parsing.input._
 
@@ -88,7 +87,7 @@ object VersionRange {
       lazy val ceilinc = "]" ^^^ true
       lazy val ceilexc = ")" ^^^ false
       lazy val atleast = version ^^ { VersionRange(_, Version.Infinite, true, false) }
-      lazy val version = regex("[0-9\\.a-zA-Z_-]+"r) ^^ Version.apply
+      lazy val version = regex("[0-9\\.a-zA-Z_-]+".r) ^^ Version.apply
     }
     
     RangeParser.range(new CharSequenceReader(v)) match {

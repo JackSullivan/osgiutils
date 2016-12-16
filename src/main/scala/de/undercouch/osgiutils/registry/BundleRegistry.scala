@@ -13,7 +13,7 @@ package de.undercouch.osgiutils.registry
 
 import java.util.jar.Manifest
 import scala.collection._
-import scala.reflect.BeanProperty
+import scala.beans.BeanProperty
 import scala.util.Sorting
 import de.undercouch.osgiutils._
 
@@ -620,7 +620,6 @@ object BundleRegistry {
    * The result of the resolving process
    */
   sealed trait ResolverResult {
-    @BeanProperty
     val bundle: BundleInfo
   }
   

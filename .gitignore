@@ -5,3 +5,5 @@ src_managed/
 project/boot/
 project/plugins/project/
 .scala_dependencies
+.idea
+*.iml

@@ -11,7 +11,7 @@
 
 package de.undercouch.osgiutils
 
-import scala.reflect.{BeanProperty, BooleanBeanProperty}
+import scala.beans.{BeanProperty, BooleanBeanProperty}
 
 /**
  * Represents a bundle required by another bundle

@@ -11,7 +11,7 @@
 
 package de.undercouch.osgiutils
 
-import scala.reflect.BeanProperty
+import scala.beans.BeanProperty
 
 /**
  * A package export declaration

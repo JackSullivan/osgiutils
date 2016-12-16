@@ -14,11 +14,9 @@ package de.undercouch.osgiutils
 import java.io.{File, FileInputStream, InputStream}
 import java.net.URL
 import java.util.jar.{Attributes, JarFile, JarInputStream, Manifest}
-import scala.reflect.BeanProperty
-import scala.util.matching.Regex
+import scala.beans.BeanProperty
 import scala.util.parsing.combinator._
 import scala.util.parsing.input._
-import de.undercouch.scalahelpers.StringAlgorithm._
 
 /**
  * Provides information about an OSGi bundle
@@ -104,14 +102,14 @@ case class BundleInfo(
   def getSimpleManifestEntry(name: String): Option[String] =
     BundleInfo.getSimpleManifestEntry(manifest, name)
   
-  override def toString(): String = "Bundle(" +
+  override def toString: String = "Bundle(" +
     symbolicName + " (" + version + ")" +
     ((for (n <- name) yield ", Name = \"" + n + "\"") getOrElse "") +
     ((for (d <- description) yield ", Description = \"" + d + "\"") getOrElse "") +
     ((for (h <- fragmentHost) yield ", Fragment Host = [" + h + "]") getOrElse "") +
-    (if (!exportedPackages.isEmpty) ", Exported Packages = [" + exportedPackages.mkString(", ") + "]" else "") +
-    (if (!importedPackages.isEmpty) ", Imported Packages = [" + importedPackages.mkString(", ") + "]" else "") +
-    (if (!requiredBundles.isEmpty) ", Required Bundles = [" + requiredBundles.mkString(", ") + "]" else "") +
+    (if (exportedPackages.nonEmpty) ", Exported Packages = [" + exportedPackages.mkString(", ") + "]" else "") +
+    (if (importedPackages.nonEmpty) ", Imported Packages = [" + importedPackages.mkString(", ") + "]" else "") +
+    (if (requiredBundles.nonEmpty) ", Required Bundles = [" + requiredBundles.mkString(", ") + "]" else "") +
     ")"
 }
 
@@ -139,10 +137,10 @@ object BundleInfo {
     lazy val decl = directive | param | header
     lazy val directive = dname ~ ":=" ~ pvalue ^^ { case n ~ ":=" ~ v => ParsedDirective(n, v) }
     lazy val param = pname ~ "=" ~ pvalue ^^ { case n ~ "=" ~ v => ParsedParam(n, v) }
-    lazy val dname = regex("[^\\:]+"r)
-    lazy val pname = regex("[^=]+"r)
-    lazy val pvalue = "\"" ~> regex("[^\"]*"r) <~ "\"" | regex(".*"r)
-    lazy val header = regex(".*"r) ^^ { ParsedHeader(_) }
+    lazy val dname = regex("[^\\:]+".r)
+    lazy val pname = regex("[^=]+".r)
+    lazy val pvalue = "\"" ~> regex("[^\"]*".r) <~ "\"" | regex(".*".r)
+    lazy val header = regex(".*".r) ^^ ParsedHeader
   }
   
   /**
@@ -151,7 +149,7 @@ object BundleInfo {
    * @return the {@link BundleInfo} object
    */
   def fromManifest(url: URL): BundleInfo =
-    fromManifest(url.openConnection().getInputStream())
+    fromManifest(url.openConnection().getInputStream)
   
   /**
    * Creates a {@link BundleInfo} object from a MANIFEST.MF file.
@@ -185,7 +183,7 @@ object BundleInfo {
    * @return the {@link BundleInfo} object
    */
   def fromJar(url: URL): BundleInfo = {
-    val is = url.openConnection().getInputStream()
+    val is = url.openConnection().getInputStream
     val jis = new JarInputStream(is)
     fromManifest(jis.getManifest)
   }
@@ -231,7 +229,7 @@ object BundleInfo {
    * not exist in the given manifest
    */
   private def getSimpleManifestEntry(manifest: Manifest, name: String): Option[String] = {
-    val attrs = manifest.getMainAttributes()
+    val attrs = manifest.getMainAttributes
     if (attrs == null) None else getSimpleManifestEntry(attrs, name)
   }
   
@@ -242,19 +240,16 @@ object BundleInfo {
    * @return the entry's value or None if the entry does
    * not exist in the given attribute map
    */
-  private def getSimpleManifestEntry(attrs: Attributes, name: String): Option[String] = {
-    val v = attrs.getValue(name)
-    if (v == null) None else Some(v)
-  }
-  
+  private def getSimpleManifestEntry(attrs: Attributes, name: String): Option[String] = Option(attrs.getValue(name))
+
   /**
    * Parses a single manifest entry value
    * @param v the value to parse
    * @return the parsed header clauses
    */
   private def parseManifestEntry(v: String): Header =
-    (v.splitIf(((_: Char) == ',') withQuotes).toList) map (v => (v.split(";").toList) map (_.trim))
-  
+    v.split(',').toList.map(_.split(';').toList.map(_.trim))
+
   /**
    * Retrieves the manifest version
    * @param manifest the manifest
@@ -280,10 +275,10 @@ object BundleInfo {
    */
   private def parseSymbolicName(manifest: Manifest): String = {
     val h = parseManifestEntry(manifest, ManifestConstants.BundleSymbolicName)
-    if (h.isEmpty || h(0).isEmpty) {
+    if (h.isEmpty || h.head.isEmpty) {
       throw new InvalidBundleException("Manifest contains no symbolic name")
     }
-    h(0)(0)
+    h.head.head
   }
   
   /**

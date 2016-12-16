@@ -12,7 +12,7 @@
 package de.undercouch.osgiutils
 
 import scala.math.Ordered
-import scala.reflect.BeanProperty
+import scala.beans.BeanProperty
 
 /**
  * A version declaration (in the format major.minor.micro.qualifier)

@@ -11,7 +11,7 @@
 
 package de.undercouch.osgiutils
 
-import scala.reflect.BeanProperty
+import scala.beans.BeanProperty
 
 /**
  * This exception will be thrown by the BundleRegistry during the resolving process
