@@ -14,9 +14,12 @@ package de.undercouch.osgiutils
 import java.io.{File, FileInputStream, InputStream}
 import java.net.URL
 import java.util.jar.{Attributes, JarFile, JarInputStream, Manifest}
+
 import scala.beans.BeanProperty
 import scala.util.parsing.combinator._
 import scala.util.parsing.input._
+
+import de.undercouch.scalahelpers.StringAlgorithm._
 
 /**
  * Provides information about an OSGi bundle
@@ -232,7 +235,7 @@ object BundleInfo {
     val attrs = manifest.getMainAttributes
     if (attrs == null) None else getSimpleManifestEntry(attrs, name)
   }
-  
+
   /**
    * Retrieves the value of a manifest entry from an attribute map
    * @param attrs the attribute map
@@ -248,7 +251,7 @@ object BundleInfo {
    * @return the parsed header clauses
    */
   private def parseManifestEntry(v: String): Header =
-    v.split(',').toList.map(_.split(';').toList.map(_.trim))
+    v.splitIf(((_: Char) == ',').withQuotes).toList.map(v => v.split(";").toList.map(_.trim))
 
   /**
    * Retrieves the manifest version
