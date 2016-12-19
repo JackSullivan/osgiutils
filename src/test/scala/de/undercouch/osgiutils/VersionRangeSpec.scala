@@ -11,17 +11,13 @@
 
 package de.undercouch.osgiutils
 
-import org.scalatest._
-import matchers.ShouldMatchers
-import junit.JUnitRunner
-import org.junit.runner.RunWith
+import org.scalatest.{WordSpec, Matchers}
 
 /**
  * Tests the {@link VersionRange} class
  * @author Michel Kraemer
  */
-@RunWith(classOf[JUnitRunner])
-class VersionRangeSpec extends WordSpec with ShouldMatchers {
+class VersionRangeSpec extends WordSpec with Matchers {
   "VersionRange" should {
     "be able to parse correctly" in {
       VersionRange("1.0") should be (VersionRange(Version(1), Version.Infinite, true, false))

@@ -11,17 +11,13 @@
 
 package de.undercouch.osgiutils
 
-import org.scalatest._
-import matchers.ShouldMatchers
-import junit.JUnitRunner
-import org.junit.runner.RunWith
+import org.scalatest.{WordSpec, Matchers}
 
 /**
  * Tests the {@link RequiredBundle} class
  * @author Michel Kraemer
  */
-@RunWith(classOf[JUnitRunner])
-class RequiredBundleSpec extends WordSpec with ShouldMatchers {
+class RequiredBundleSpec extends WordSpec with Matchers {
   "RequiredBundle" should {
     "have the right string representation" in {
       RequiredBundle("A").toString should be ("A")

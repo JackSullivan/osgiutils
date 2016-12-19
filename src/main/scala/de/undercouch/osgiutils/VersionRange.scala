@@ -17,8 +17,7 @@ import scala.util.parsing.input._
 
 /**
  * A version range
-  *
-  * @author Michel Kraemer
+ * @author Michel Kraemer
  */
 case class VersionRange(@BeanProperty floor: Version, @BeanProperty ceiling: Version,
   @BooleanBeanProperty floorInclusive: Boolean,
@@ -27,11 +26,10 @@ case class VersionRange(@BeanProperty floor: Version, @BeanProperty ceiling: Ver
   
   /**
    * Checks if this version range contains a given version
-    *
-    * @param v the version
+   * @param v the version
    * @return true if this version range contains v, false otherwise
    */
-  def contains(v: Version): Boolean =
+  def contains(v: Version): Boolean = {
     if (floorInclusive && ceilingInclusive)
       v >= floor && v <= ceiling
     else if (floorInclusive && !ceilingInclusive)
@@ -40,11 +38,11 @@ case class VersionRange(@BeanProperty floor: Version, @BeanProperty ceiling: Ver
       v > floor && v <= ceiling
     else
       v > floor && v < ceiling
-
+  }
   
-  override def toString: String = {
+  override def toString(): String = {
     if (ceiling == Version.Infinite) {
-      floor.toString()
+      floor.toString
     } else {
       (if (floorInclusive) "[" else "(") +
         floor + ", " + ceiling +
@@ -55,8 +53,7 @@ case class VersionRange(@BeanProperty floor: Version, @BeanProperty ceiling: Ver
 
 /**
  * Defines methods to parse version ranges
-  *
-  * @author Michel Kraemer
+ * @author Michel Kraemer
  */
 object VersionRange {
   /**
@@ -67,8 +64,7 @@ object VersionRange {
   /**
    * Defines the new version range which that starts at the
    * given version number (inclusively) and goes to Version.Infinite
-    *
-    * @param v the lower version number
+   * @param v the lower version number
    * @return the new version range
    */
   def apply(v: Version): VersionRange =
@@ -76,8 +72,7 @@ object VersionRange {
     
   /**
    * Parses a version range string
-    *
-    * @param v the string to parse
+   * @param v the string to parse
    * @return the parsed version range
    * @throws InvalidBundleException if the version range string is invalid
    */

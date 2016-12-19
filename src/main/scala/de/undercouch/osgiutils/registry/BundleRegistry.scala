@@ -256,6 +256,7 @@ class BundleRegistry {
         }
         
         val node = BundleNode(bundle, transitive)
+        
         //cache transitive dependencies
         cache += (bundle -> node)
         
@@ -298,7 +299,7 @@ class BundleRegistry {
     val a = bundle.requiredBundles filter { includeOptional || !_.optional } map { rb =>
       val bundles = findBundles(rb)
       if (bundles.length == 1)
-        DirectWire(BundleNode(bundles.head))
+        DirectWire(BundleNode(bundles(0)))
       else
         RequiredBundleWire(rb, bundles map { b => BundleNode(b) })
     }
@@ -307,7 +308,7 @@ class BundleRegistry {
     val b = bundle.importedPackages filter { includeOptional || !_.optional } map { ip =>
       val bundles = findBundles(ip)
       if (bundles.length == 1)
-        DirectWire(BundleNode(bundles.head))
+        DirectWire(BundleNode(bundles(0)))
       else
         ImportedPackageWire(ip, bundles map { b => BundleNode(b) })
     }
@@ -316,7 +317,7 @@ class BundleRegistry {
     val c = bundle.fragmentHost map { fh =>
       val bundles = findBundles(fh)
       if (bundles.length == 1)
-        DirectWire(BundleNode(bundles.head))
+        DirectWire(BundleNode(bundles(0)))
       else
         FragmentHostWire(fh, bundles map { b => BundleNode(b) })
     }
@@ -347,7 +348,7 @@ class BundleRegistry {
         
         //cache result (only of it is not ambiguous)
         val ambigious = graph.wires exists {
-          case aw: AmbiguousWire if aw.candidates.length == 2 => aw.candidates.head.bundle != graph.bundle
+          case aw: AmbiguousWire if aw.candidates.length == 2 => aw.candidates(0) != graph.bundle
           case aw: AmbiguousWire if aw.candidates.length > 2 => true
           case _ => false
         }
@@ -382,15 +383,15 @@ class BundleRegistry {
         case head :: tail if head.bundle == bundle =>
           //ignore internal dependency and
           //use the external one
-          Some(Left(tail.head))
+          Some(Left(tail(0)))
         case head :: tail =>
           //use dependency with highest priority
           Some(Left(head))
-        case Nil if ip.optional =>
+        case List() if ip.optional =>
           //ignore missing dependency if the
           //import-package declaration is optional
           None
-        case Nil =>
+        case List() =>
           //produce missing dependency error
           Some(Right(MissingImportedPackage(bundle, ip)))
       }
@@ -399,15 +400,15 @@ class BundleRegistry {
         case List() if rb.optional => None
         case List() => Some(Right(MissingRequiredBundle(bundle, rb)))
         case head :: Nil if head.bundle == bundle => None
-        case head :: tail if head.bundle == bundle => Some(Left(tail.head))
-        case _ => Some(Left(candidates.head))
+        case head :: tail if head.bundle == bundle => Some(Left(tail(0)))
+        case _ => Some(Left(candidates(0)))
       }
       
       case FragmentHostWire(fh, candidates) => candidates match {
         case List() => Some(Right(MissingFragmentHost(bundle, fh)))
         case head :: Nil if head.bundle == bundle => None
-        case head :: tail if head.bundle == bundle => Some(Left(tail.head))
-        case _ => Some(Left(candidates.head))
+        case head :: tail if head.bundle == bundle => Some(Left(tail(0)))
+        case _ => Some(Left(candidates(0)))
       }
     }
   }
@@ -421,9 +422,10 @@ class BundleRegistry {
    * @return the bundle that matches the constraints or None if
    * there is no such bundle in the registry
    */
-  def findBundle(symbolicName: String, version: VersionRange): Option[BundleInfo] =
-    findBundles(symbolicName, version).headOption
-
+  def findBundle(symbolicName: String, version: VersionRange): Option[BundleInfo] = {
+    val result = findBundles(symbolicName, version)
+    if (result.isEmpty) None else Some(result(0))
+  }
   
   /**
    * Finds all bundles in the registry that match the given constraints.
@@ -506,37 +508,52 @@ class BundleRegistry {
    * that exports a package that matches the given import-package
    * constraint. If the method finds multiple bundles exporting such
    * a package, it returns the one that fits best.
-   * @param i the import-package constraint
+   * @param r the import-package constraint
    * @return the bundle that exports a package that matches the
    * constraint or None if there is no such bundle in the registry
    */
-  def findBundle(i: ImportedPackage): Option[BundleInfo] =
-    findBundles(i).headOption
-
+  def findBundle(i: ImportedPackage): Option[BundleInfo] = {
+    val result = findBundles(i)
+    if (result.isEmpty) None else Some(result(0))
+  }
   
   /**
    * Finds all bundles in the registry that match the given
    * import-package constraint. The returned list of bundles is
    * sorted by their priority. That means the first bundle in the
    * list is the one that matches the constraint best.
-   * @param i the import-package constraint
+   * @param r the import-package constraint
    * @return the bundles that match the constraint or an empty list if
    * there are no such bundles in the registry
    */
-  def findBundles(i: ImportedPackage): List[BundleInfo] =
-    exportedPackageIndex.get(i.name) match  {
-      case Some(candidates) =>
-        val result = candidates.toSeq.filter { c =>
-          val versionsMatch = i.version contains c.pkg.version
-          val symbolicNamesMatch = i.bundleSymbolicName.forall(c.bundle.symbolicName == _)
-          val bundleVersionsMatch = i.bundleVersion contains c.bundle.version
-          val mandatoryAttributesMatch = c.pkg.mandatoryAttributes forall i.matchingAttributes.contains
-          val attributesMatch = c.pkg.mandatoryAttributes forall i.matchingAttributes.contains
-          versionsMatch && symbolicNamesMatch && bundleVersionsMatch && mandatoryAttributesMatch && attributesMatch
-        }.map(_.bundle)
-        prioritize(result)
-      case None => List.empty
+  def findBundles(i: ImportedPackage): List[BundleInfo] = {
+    val result = exportedPackageIndex.get(i.name) map { candidates =>
+      candidates filter { c =>
+        //check if the version of the exported package matches the required one
+        i.version contains c.pkg.version
+      } filter { c =>
+        //check if there is a required bundle symbolic name
+        //if so, filter out candidates that do not match
+        (for (sn <- i.bundleSymbolicName) yield c.bundle.symbolicName == sn) getOrElse true
+      } filter { c =>
+        //filter out candidates that do not match the required bundle version
+        i.bundleVersion contains c.bundle.version
+      } filter { c =>
+        //filter out candidates that require mandatory attributes
+        //the imported-package declaration does not specify
+        c.pkg.mandatoryAttributes forall i.matchingAttributes.contains
+      } filter { c =>
+        //check attributes and filter out candidates that do not match
+        i.matchingAttributes forall { ia =>
+          (for (ca <- c.pkg.matchingAttributes.get(ia._1)) yield ia._2 == ca) getOrElse false
+        }
+      } map {
+        //convert list of ExportPackage items to bundles
+        _.bundle
+      }
     }
+    prioritize(result getOrElse Set.empty)
+  }
   
   /**
    * Prioritizes bundles
@@ -557,11 +574,11 @@ class BundleRegistry {
         } else if (a.version == b.version) {
           val aid = getId(a)
           val bid = getId(b)
-          if (aid.isDefined && bid.isEmpty) {
+          if (aid.isDefined && !bid.isDefined) {
             true
-          } else if (aid.isEmpty && bid.isDefined) {
+          } else if (!aid.isDefined && bid.isDefined) {
             false
-          } else if (aid.isEmpty && bid.isEmpty) {
+          } else if (!aid.isDefined && !bid.isDefined) {
             false
           } else {
             aid.get < bid.get
@@ -621,7 +638,7 @@ object BundleRegistry {
    */
   case class MissingRequiredBundle(@BeanProperty bundle: BundleInfo,
     @BeanProperty val requiredBundle: RequiredBundle) extends ResolverResult with ResolverError {
-    override def toString: String = "Missing required bundle " + requiredBundle + " in " + bundle
+    override def toString(): String = "Missing required bundle " + requiredBundle + " in " + bundle
   }
   
   /**
@@ -629,7 +646,7 @@ object BundleRegistry {
    */
   case class MissingImportedPackage(@BeanProperty bundle: BundleInfo,
     @BeanProperty val importedPackage: ImportedPackage) extends ResolverResult with ResolverError {
-    override def toString: String = "Missing imported package " + importedPackage + " in " + bundle
+    override def toString(): String = "Missing imported package " + importedPackage + " in " + bundle
   }
   
   /**
@@ -637,7 +654,7 @@ object BundleRegistry {
    */
   case class MissingFragmentHost(@BeanProperty bundle: BundleInfo,
     @BeanProperty val fragmentHost: FragmentHost) extends ResolverResult with ResolverError {
-    override def toString: String = "Missing fragment host " + fragmentHost + " in " + bundle
+    override def toString(): String = "Missing fragment host " + fragmentHost + " in " + bundle
   }
   
   /**
@@ -657,22 +674,13 @@ object BundleRegistry {
    * <code>bundle</code> is the only attribute of interest. This speeds up
    * the resolving process a lot.</p>
    */
-  private class BundleNode(val bundle: BundleInfo, val wires: Set[Wire] = Set.empty) {
+  private case class BundleNode(val bundle: BundleInfo, val wires: Set[Wire] = Set.empty) {
     override def equals(o: Any): Boolean = o match {
       case that: BundleNode => bundle == that.bundle
       case _ => false
     }
     
     override def hashCode(): Int = bundle.hashCode
-
-    override def toString = s"BundleNode($bundle, $wires)"
-  }
-
-  private object BundleNode {
-    def apply(b:BundleInfo, w:Set[Wire]) = new BundleNode(b, w)
-    def apply(b:BundleInfo) = new BundleNode(b, Set.empty)
-
-    def unapply(bn:BundleNode) = Some(bn.bundle -> bn.wires)
   }
   
   /**

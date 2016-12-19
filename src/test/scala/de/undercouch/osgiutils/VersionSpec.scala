@@ -11,17 +11,13 @@
 
 package de.undercouch.osgiutils
 
-import org.scalatest._
-import matchers.ShouldMatchers
-import junit.JUnitRunner
-import org.junit.runner.RunWith
+import org.scalatest.{WordSpec, Matchers}
 
 /**
  * Tests the {@link Version} class
  * @author Michel Kraemer
  */
-@RunWith(classOf[JUnitRunner])
-class VersionSpec extends WordSpec with ShouldMatchers {
+class VersionSpec extends WordSpec with Matchers {
   "Version" should {
     "be able to parse correctly" in {
       Version("1") should be (Version(1))

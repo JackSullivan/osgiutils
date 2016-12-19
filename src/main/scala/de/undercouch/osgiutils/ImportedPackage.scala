@@ -26,8 +26,8 @@ case class ImportedPackage(@BeanProperty name: String,
   override def toString(): String = name +
     (if (optional) ";resolution:=optional" else "") +
     (if (version != VersionRange.Default) ";version=\"" + version + "\"" else "") +
-    bundleSymbolicName.map(";bundle-symbolic-name=" + _).getOrElse("") +
+    ((for (n <- bundleSymbolicName) yield ";bundle-symbolic-name=" + n) getOrElse "") +
     (if (bundleVersion != VersionRange.Default) ";bundle-version=\"" + bundleVersion + "\"" else "") +
-    matchingAttributes.foldLeft("")((s: String, e: (String, String)) =>
-      s + ";" + e._1 + "=\"" + e._2 + "\"")
+    (matchingAttributes.foldLeft("")((s: String, e: (String, String)) =>
+      s + ";" + e._1 + "=\"" + e._2 + "\""))
 }

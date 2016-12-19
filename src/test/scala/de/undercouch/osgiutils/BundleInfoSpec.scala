@@ -11,19 +11,16 @@
 
 package de.undercouch.osgiutils
 
-import org.scalatest._
-import matchers.ShouldMatchers
-import junit.JUnitRunner
-import org.junit.runner.RunWith
+import org.scalatest.{WordSpec, Matchers}
 
 /**
  * Tests the {@link BundleInfo} class
- * @author Michel Kraemer
+  *
+  * @author Michel Kraemer
  */
-@RunWith(classOf[JUnitRunner])
-class BundleInfoSpec extends WordSpec with ShouldMatchers {
+class BundleInfoSpec extends WordSpec with Matchers {
   "BundleInfo" should {
-    val bi = BundleInfo.fromManifest(getClass.getResource("MANIFEST.MF"))
+    val bi = BundleInfo.fromManifest(getClass.getResource("/MANIFEST.MF"))
     
     "create a valid bundle info" in {
       bi.symbolicName should be ("de.undercouch.osgiutils.testbundle")
@@ -84,47 +81,47 @@ class BundleInfoSpec extends WordSpec with ShouldMatchers {
   "BundleInfo" should {
     "complain about invalid bundle" in {
       evaluating {
-        BundleInfo.fromManifest(getClass.getResource("MANIFEST_INVALID.MF"))
+        BundleInfo.fromManifest(getClass.getResource("/MANIFEST_INVALID.MF"))
       } should produce [InvalidBundleException]
     }
     
     "return default manifest version number" in {
-      val bi = BundleInfo.fromManifest(getClass.getResource("MANIFEST_NOMANIFESTVERSION.MF"))
+      val bi = BundleInfo.fromManifest(getClass.getResource("/MANIFEST_NOMANIFESTVERSION.MF"))
       bi.manifestVersion should be (1)
     }
     
     "return default version number" in {
-      val bi = BundleInfo.fromManifest(getClass.getResource("MANIFEST_NOVERSION.MF"))
+      val bi = BundleInfo.fromManifest(getClass.getResource("/MANIFEST_NOVERSION.MF"))
       bi.version should be (Version.Default)
     }
     
     "return no human readable name" in {
-      val bi = BundleInfo.fromManifest(getClass.getResource("MANIFEST_NONAME_NODESC.MF"))
+      val bi = BundleInfo.fromManifest(getClass.getResource("/MANIFEST_NONAME_NODESC.MF"))
       bi.name should be (None)
     }
     
     "return no description" in {
-      val bi = BundleInfo.fromManifest(getClass.getResource("MANIFEST_NONAME_NODESC.MF"))
+      val bi = BundleInfo.fromManifest(getClass.getResource("/MANIFEST_NONAME_NODESC.MF"))
       bi.description should be (None)
     }
     
     "complain about invalid version number" in {
       evaluating {
-        BundleInfo.fromManifest(getClass.getResource("MANIFEST_INVALIDVERSION.MF"))
+        BundleInfo.fromManifest(getClass.getResource("/MANIFEST_INVALIDVERSION.MF"))
       } should produce [InvalidBundleException]
     }
     
     "be able to ignore unknown directive" in {
-      BundleInfo.fromManifest(getClass.getResource("MANIFEST_UNKNOWN_DIRECTIVE.MF"))
+      BundleInfo.fromManifest(getClass.getResource("/MANIFEST_UNKNOWN_DIRECTIVE.MF"))
     }
     
     "be able to ignore unknown parameter" in {
-      BundleInfo.fromManifest(getClass.getResource("MANIFEST_UNKNOWN_PARAMETER.MF"))
+      BundleInfo.fromManifest(getClass.getResource("/MANIFEST_UNKNOWN_PARAMETER.MF"))
     }
     
     "parse system fragment host correctly" in {
-      val bi1 = BundleInfo.fromManifest(getClass.getResource("MANIFEST_BOOTFRAGMENT.MF"))
-      val bi2 = BundleInfo.fromManifest(getClass.getResource("MANIFEST_FRAMEWORKFRAGMENT.MF"))
+      val bi1 = BundleInfo.fromManifest(getClass.getResource("/MANIFEST_BOOTFRAGMENT.MF"))
+      val bi2 = BundleInfo.fromManifest(getClass.getResource("/MANIFEST_FRAMEWORKFRAGMENT.MF"))
       bi1.fragmentHost should be (Some(FragmentHost("system.bundle", VersionRange(Version(1, 2, 3)), FragmentHost.Extension.BootClassPath)))
       bi2.fragmentHost should be (Some(FragmentHost("system.bundle", VersionRange(Version(1, 2, 3)), FragmentHost.Extension.Framework)))
     }

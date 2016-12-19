@@ -11,17 +11,13 @@
 
 package de.undercouch.osgiutils
 
-import org.scalatest._
-import matchers.ShouldMatchers
-import junit.JUnitRunner
-import org.junit.runner.RunWith
+import org.scalatest.{WordSpec, Matchers}
 
 /**
  * Tests the {@link ImportedPackage} class
  * @author Michel Kraemer
  */
-@RunWith(classOf[JUnitRunner])
-class ImportedPackageSpec extends WordSpec with ShouldMatchers {
+class ImportedPackageSpec extends WordSpec with Matchers {
   "ImportedPackage" should {
     "have the right string representation" in {
       ImportedPackage("p").toString should be ("p")

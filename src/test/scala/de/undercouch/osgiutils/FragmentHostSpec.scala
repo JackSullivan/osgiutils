@@ -11,17 +11,13 @@
 
 package de.undercouch.osgiutils
 
-import org.scalatest._
-import matchers.ShouldMatchers
-import junit.JUnitRunner
-import org.junit.runner.RunWith
+import org.scalatest.{WordSpec, Matchers}
 
 /**
  * Tests the {@link FragmentHost} class
  * @author Michel Kraemer
  */
-@RunWith(classOf[JUnitRunner])
-class FragmentHostSpec extends WordSpec with ShouldMatchers {
+class FragmentHostSpec extends WordSpec with Matchers {
   "FragmentHostSpec" should {
     "have the right string representation" in {
       FragmentHost("A").toString should be ("A")
